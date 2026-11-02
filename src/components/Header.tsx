@@ -5,7 +5,6 @@ import { useRouter, useNavigate } from '../router/Router';
 import { OrgSwitcherDropdown } from './OrgSwitcherDropdown';
 import { UserMenuDropdown } from './UserMenuDropdown';
 import {
-  Kanban,
   Star,
   Search,
   Filter,
@@ -117,10 +116,8 @@ export const Header: React.FC = () => {
           <Menu size={20} />
         </button>
 
-        <div className="brand-badge">
-          <div className="brand-logo-icon">
-            <Kanban size={18} />
-          </div>
+        <div className="brand-badge" onClick={() => navigate('/organizations/select')} style={{ cursor: 'pointer' }} title="Drello Home">
+          <img src="/drello-icon.png" alt="Drello" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
           <span className="brand-title">Drello</span>
         </div>
 

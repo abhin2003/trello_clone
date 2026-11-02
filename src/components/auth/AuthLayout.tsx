@@ -1,5 +1,5 @@
 import React from 'react';
-import { Kanban, ShieldCheck, Moon, Sun } from 'lucide-react';
+import { ShieldCheck, Moon, Sun } from 'lucide-react';
 import { useBoard } from '../../context/BoardContext';
 
 interface AuthLayoutProps {
@@ -25,9 +25,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
       {/* Top Header with Brand and Theme Switcher */}
       <header className="auth-top-header">
         <div className="auth-brand">
-          <div className="brand-logo-icon">
-            <Kanban size={20} />
-          </div>
+          <img src="/drello-icon.png" alt="Drello" style={{ width: '30px', height: '30px', objectFit: 'contain' }} />
           <span className="brand-title">Drello</span>
           <span className="badge-pill badge-active" style={{ fontSize: '0.7rem', padding: '2px 8px' }}>
             SaaS Platform

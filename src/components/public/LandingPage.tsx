@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Kanban,
   ShieldCheck,
   Users,
   Layers,
@@ -29,9 +28,7 @@ export const LandingPage: React.FC = () => {
       <header className="landing-nav-header">
         <div className="landing-nav-container">
           <div className="auth-brand" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
-            <div className="brand-logo-icon">
-              <Kanban size={20} />
-            </div>
+            <img src="/drello-icon.png" alt="Drello" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />
             <span className="brand-title">Drello</span>
             <span className="badge-pill badge-active" style={{ fontSize: '0.7rem' }}>
               Multi-Tenant SaaS
@@ -290,9 +287,7 @@ export const LandingPage: React.FC = () => {
         <div className="landing-footer-container">
           <div className="footer-left">
             <div className="auth-brand">
-              <div className="brand-logo-icon">
-                <Kanban size={18} />
-              </div>
+              <img src="/drello-icon.png" alt="Drello" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
               <span className="brand-title">Drello</span>
             </div>
             <p className="footer-copy">

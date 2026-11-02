@@ -41,7 +41,7 @@ import { NotFoundPage } from './components/errors/NotFoundPage';
 import { AccessDeniedPage } from './components/errors/AccessDeniedPage';
 import { ServerErrorPage } from './components/errors/ServerErrorPage';
 
-import { Kanban, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
 export const AppRouter: React.FC = () => {
   const { currentPath, searchParams } = useRouter();
@@ -99,20 +99,18 @@ export const AppRouter: React.FC = () => {
     return (
       <div className="auth-loading-screen">
         <div className="auth-loading-box">
-          <div
-            className="brand-logo-icon"
+          <img
+            src="/drello-icon.png"
+            alt="Drello"
             style={{
               width: '56px',
               height: '56px',
               borderRadius: '14px',
               margin: '0 auto',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              display: 'block',
+              objectFit: 'contain',
             }}
-          >
-            <Kanban size={32} />
-          </div>
+          />
           <h2 style={{ margin: '1rem 0 0.5rem 0', fontSize: '1.25rem', fontWeight: 700 }}>Drello</h2>
           <div
             style={{
