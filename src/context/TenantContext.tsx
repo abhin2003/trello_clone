@@ -13,6 +13,7 @@ import type {
 } from '../types/saas';
 import { tenantService } from '../services/tenantService';
 import { isSupabaseConfigured } from '../lib/supabase';
+import { useAuth } from './AuthContext';
 
 interface TenantContextType {
   currentUser: UserProfile;
@@ -49,6 +50,8 @@ interface TenantContextType {
   upgradePlan: (planId: SubscriptionPlanId) => void;
   exportOrgData: () => void;
   refreshTenantState: () => void;
+  orgJoinCode: string;
+  regenerateJoinCode: () => string;
 
   // Modals
   isOrgAdminOpen: boolean;
@@ -57,6 +60,10 @@ interface TenantContextType {
   setIsPlatformAdminOpen: (open: boolean) => void;
   isOnboardingOpen: boolean;
   setIsOnboardingOpen: (open: boolean) => void;
+  isCreateWorkspaceOpen: boolean;
+  setIsCreateWorkspaceOpen: (open: boolean) => void;
+  isJoinCodeModalOpen: boolean;
+  setIsJoinCodeModalOpen: (open: boolean) => void;
   isUpgradeModalOpen: boolean;
   setIsUpgradeModalOpen: (open: boolean) => void;
   // Supabase Integration
@@ -71,20 +78,41 @@ interface TenantContextType {
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
 export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { userProfile, memberships, activeOrg: authActiveOrg } = useAuth();
+
   // Trigger state refresh
   const [refreshIndex, setRefreshIndex] = useState(0);
   const refreshTenantState = useCallback(() => {
     setRefreshIndex(prev => prev + 1);
   }, []);
 
-  const currentUser = useMemo(() => tenantService.getCurrentUser(), [refreshIndex]);
-  const [activeOrgId, setActiveOrgId] = useState<string>(() => tenantService.getActiveOrgId());
+  const currentUser = useMemo(() => {
+    if (userProfile) {
+      tenantService.setCurrentUser(userProfile);
+      return userProfile;
+    }
+    return tenantService.getCurrentUser();
+  }, [userProfile, refreshIndex]);
+
+  const [activeOrgId, setActiveOrgId] = useState<string>(() => {
+    return authActiveOrg?.id || tenantService.getActiveOrgId();
+  });
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
+
+  // Sync auth active org
+  useEffect(() => {
+    if (authActiveOrg && authActiveOrg.id !== activeOrgId) {
+      setActiveOrgId(authActiveOrg.id);
+      tenantService.setActiveOrgId(authActiveOrg.id, authActiveOrg);
+    }
+  }, [authActiveOrg, activeOrgId]);
 
   // Modals state
   const [isOrgAdminOpen, setIsOrgAdminOpen] = useState(false);
   const [isPlatformAdminOpen, setIsPlatformAdminOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = useState(false);
+  const [isJoinCodeModalOpen, setIsJoinCodeModalOpen] = useState(false);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
   const [quotaWarning, setQuotaWarning] = useState<string | null>(null);
@@ -100,8 +128,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const isSupabaseActive = isSupabaseConfigured();
 
   const userOrgs = useMemo(() => {
+    if (memberships && memberships.length > 0) {
+      return memberships.map((m) => ({
+        ...m.organisation,
+        userRole: m.role,
+      }));
+    }
     return tenantService.getUserOrganisations(currentUser.id);
-  }, [currentUser.id, refreshIndex]);
+  }, [memberships, currentUser.id, refreshIndex]);
 
   const userRole = useMemo(() => {
     return tenantService.getCurrentUserRole(activeOrg.id);
@@ -229,6 +263,17 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     URL.revokeObjectURL(url);
   };
 
+  const orgJoinCode = useMemo(() => {
+    return activeOrg ? tenantService.getOrgJoinCode(activeOrg.id) : '';
+  }, [activeOrg, refreshIndex]);
+
+  const regenerateJoinCode = useCallback(() => {
+    if (!activeOrg) return '';
+    const newCode = tenantService.regenerateOrgJoinCode(activeOrg.id);
+    refreshTenantState();
+    return newCode;
+  }, [activeOrg, refreshTenantState]);
+
   return (
     <TenantContext.Provider
       value={{
@@ -262,12 +307,18 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         upgradePlan,
         exportOrgData,
         refreshTenantState,
+        orgJoinCode,
+        regenerateJoinCode,
         isOrgAdminOpen,
         setIsOrgAdminOpen,
         isPlatformAdminOpen,
         setIsPlatformAdminOpen,
         isOnboardingOpen,
         setIsOnboardingOpen,
+        isCreateWorkspaceOpen,
+        setIsCreateWorkspaceOpen,
+        isJoinCodeModalOpen,
+        setIsJoinCodeModalOpen,
         isUpgradeModalOpen,
         setIsUpgradeModalOpen,
         isSupabaseModalOpen,

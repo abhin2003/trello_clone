@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useBoard } from '../context/BoardContext';
+import { useTenant } from '../context/TenantContext';
+import { useAuth } from '../context/AuthContext';
 import {
   X,
   Send,
@@ -19,6 +21,8 @@ export const ChatWindow: React.FC = () => {
     isTyping,
     activeBoard,
   } = useBoard();
+  const { members: orgMembers } = useTenant();
+  const { userProfile } = useAuth();
 
   const [inputVal, setInputVal] = useState('');
   const [isMinimized, setIsMinimized] = useState(false);
@@ -26,7 +30,40 @@ export const ChatWindow: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const member = activeBoard.members.find((m) => m.id === activeChatMemberId);
+  // Resolve member from organisation members, board members, or fallback
+  const orgMember = orgMembers.find(
+    (m) => m.userId === activeChatMemberId || m.id === activeChatMemberId
+  );
+  const boardMember = activeBoard?.members?.find((m) => m.id === activeChatMemberId);
+
+  const member = orgMember
+    ? {
+        id: orgMember.userId || orgMember.id,
+        name: orgMember.user?.name || orgMember.user?.email?.split('@')[0] || 'Team Member',
+        avatarColor: orgMember.user?.avatarColor || '#3b82f6',
+        initials: orgMember.user?.initials || (orgMember.user?.name ? orgMember.user.name.slice(0, 2).toUpperCase() : 'TM'),
+        email: orgMember.user?.email,
+        jobTitle: orgMember.jobTitle,
+      }
+    : boardMember
+    ? {
+        id: boardMember.id,
+        name: boardMember.name,
+        avatarColor: boardMember.avatarColor,
+        initials: boardMember.initials,
+        email: undefined,
+        jobTitle: undefined,
+      }
+    : activeChatMemberId
+    ? {
+        id: activeChatMemberId,
+        name: 'Team Member',
+        avatarColor: '#3b82f6',
+        initials: 'TM',
+        email: undefined,
+        jobTitle: undefined,
+      }
+    : null;
 
   const messages = activeChatMemberId ? chatMessages[activeChatMemberId] || [] : [];
 
@@ -43,6 +80,8 @@ export const ChatWindow: React.FC = () => {
   }, [messages, activeChatMemberId, isTyping, isMinimized]);
 
   if (!activeChatMemberId || !member) return null;
+
+  const isSelf = member.id === userProfile?.id || (member.email && member.email === userProfile?.email);
 
   const handleSend = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -73,13 +112,13 @@ export const ChatWindow: React.FC = () => {
 
           <div className="wa-user-info">
             <h4 className="wa-user-name">
-              {member.name} {member.id === 'mem-1' ? '(You)' : ''}
+              {member.name} {isSelf ? '(You)' : ''}
             </h4>
             <span className="wa-status-text">
               {isTyping ? (
                 <span className="typing-green">typing...</span>
               ) : (
-                'online'
+                member.jobTitle ? `${member.jobTitle} • online` : 'online'
               )}
             </span>
           </div>

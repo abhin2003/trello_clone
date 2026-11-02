@@ -97,25 +97,31 @@ export const FilterModal: React.FC = () => {
           <div className="filter-section">
             <span className="filter-section-title">Members</span>
             <div className="filter-members-grid">
-              {activeBoard.members.map((mem) => {
-                const isSelected = filter.selectedMemberIds.includes(mem.id);
-                return (
-                  <div
-                    key={mem.id}
-                    className={`filter-member-item ${isSelected ? 'selected' : ''}`}
-                    onClick={() => handleToggleMember(mem.id)}
-                  >
+              {activeBoard.members.length === 0 ? (
+                <div style={{ padding: '8px 4px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                  No organisation members available
+                </div>
+              ) : (
+                activeBoard.members.map((mem) => {
+                  const isSelected = filter.selectedMemberIds.includes(mem.id);
+                  return (
                     <div
-                      className="member-mini-avatar"
-                      style={{ backgroundColor: mem.avatarColor }}
+                      key={mem.id}
+                      className={`filter-member-item ${isSelected ? 'selected' : ''}`}
+                      onClick={() => handleToggleMember(mem.id)}
                     >
-                      {mem.initials}
+                      <div
+                        className="member-mini-avatar"
+                        style={{ backgroundColor: mem.avatarColor }}
+                      >
+                        {mem.initials}
+                      </div>
+                      <span className="member-name">{mem.name}</span>
+                      {isSelected && <CheckCircle2 size={15} className="check-icon" />}
                     </div>
-                    <span className="member-name">{mem.name}</span>
-                    {isSelected && <CheckCircle2 size={15} className="check-icon" />}
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
         </div>

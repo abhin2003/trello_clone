@@ -8,7 +8,6 @@ import {
   Shield,
   Layers,
   ChevronDown,
-  Database,
   Crown,
   UserCheck,
 } from 'lucide-react';
@@ -23,7 +22,6 @@ export const UserMenuDropdown: React.FC = () => {
     userRole,
     isAdmin,
     isPlatformAdmin,
-    setIsSupabaseModalOpen,
   } = useTenant();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -92,7 +90,13 @@ export const UserMenuDropdown: React.FC = () => {
       </button>
 
       {isOpen && (
-        <div className="user-profile-menu-popover">
+        <div
+          className="user-profile-menu-popover"
+          style={{
+            backgroundColor: 'var(--bg-surface, var(--bg-card))',
+            opacity: 1,
+          }}
+        >
           {/* User Bio Header */}
           <div className="user-popover-header">
             <div className="popover-avatar" style={{ backgroundColor: avatarColor }}>
@@ -159,18 +163,6 @@ export const UserMenuDropdown: React.FC = () => {
                 <span>Platform Admin Console</span>
               </button>
             )}
-
-            <button
-              type="button"
-              className="popover-menu-item"
-              onClick={() => {
-                setIsOpen(false);
-                setIsSupabaseModalOpen(true);
-              }}
-            >
-              <Database size={16} />
-              <span>Supabase Connection</span>
-            </button>
 
             <div className="popover-divider" />
 

@@ -5,7 +5,6 @@ import {
   Building2,
   Users,
   LayoutGrid,
-  CreditCard,
   FileText,
   Plus,
   Trash2,
@@ -26,7 +25,6 @@ export const OrganisationAdminPortal: React.FC = () => {
     members,
     invitations,
     workspaces,
-    usageStats,
     auditLogs,
     isOrgAdminOpen,
     setIsOrgAdminOpen,
@@ -37,11 +35,10 @@ export const OrganisationAdminPortal: React.FC = () => {
     removeMember,
     createWorkspace,
     exportOrgData,
-    setIsUpgradeModalOpen,
   } = useTenant();
 
   const [activeTab, setActiveTab] = useState<
-    'general' | 'members' | 'workspaces' | 'billing' | 'audit'
+    'general' | 'members' | 'workspaces' | 'audit'
   >('general');
 
   // General tab state
@@ -182,14 +179,6 @@ export const OrganisationAdminPortal: React.FC = () => {
           </button>
 
           <button
-            className={`portal-tab-btn ${activeTab === 'billing' ? 'active' : ''}`}
-            onClick={() => setActiveTab('billing')}
-          >
-            <CreditCard size={16} />
-            <span>Plan & Quotas</span>
-          </button>
-
-          <button
             className={`portal-tab-btn ${activeTab === 'audit' ? 'active' : ''}`}
             onClick={() => setActiveTab('audit')}
           >
@@ -319,17 +308,13 @@ export const OrganisationAdminPortal: React.FC = () => {
                 <div>
                   <h3 className="section-heading">Team Directory</h3>
                   <p className="section-subheading">
-                    {members.length} of {usageStats.maxMembers} seats active
-                    {usageStats.isMemberLimitReached && (
-                      <span className="quota-warning-pill">Quota Reached</span>
-                    )}
+                    {members.length} team members active
                   </p>
                 </div>
 
                 <button
                   className="primary-cta-btn"
                   onClick={() => setIsInviteModalOpen(true)}
-                  disabled={usageStats.isMemberLimitReached}
                 >
                   <UserPlus size={16} />
                   <span>Invite Member</span>
@@ -459,13 +444,12 @@ export const OrganisationAdminPortal: React.FC = () => {
                 <div>
                   <h3 className="section-heading">Organisation Workspaces</h3>
                   <p className="section-subheading">
-                    {workspaces.length} of {usageStats.maxWorkspaces} workspaces created
+                    {workspaces.length} workspaces created
                   </p>
                 </div>
                 <button
                   className="primary-cta-btn"
                   onClick={() => setIsNewWsModalOpen(true)}
-                  disabled={usageStats.isWorkspaceLimitReached}
                 >
                   <Plus size={16} />
                   <span>Create Workspace</span>
@@ -503,144 +487,6 @@ export const OrganisationAdminPortal: React.FC = () => {
                     </div>
                   </div>
                 ))}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 4: BILLING & QUOTAS */}
-          {activeTab === 'billing' && (
-            <div className="billing-tab-view animate-fade-in">
-              <div className="plan-summary-hero">
-                <div className="plan-hero-left">
-                  <div className="hero-badge">ACTIVE SUBSCRIPTION</div>
-                  <h3 className="plan-hero-title">{usageStats.plan.name} Plan</h3>
-                  <p className="plan-hero-desc">{usageStats.plan.description}</p>
-                </div>
-                <div className="plan-hero-right">
-                  <div className="plan-hero-price">
-                    ${(usageStats.plan.monthlyPriceCents / 100).toFixed(0)}
-                    <span className="price-period">/mo</span>
-                  </div>
-                  <button
-                    className="primary-cta-btn"
-                    onClick={() => setIsUpgradeModalOpen(true)}
-                  >
-                    Change Plan
-                  </button>
-                </div>
-              </div>
-
-              {/* Usage Meters */}
-              <h4 className="section-heading-small">Real-Time Quota Consumption</h4>
-              <div className="meters-grid">
-                {/* Members Meter */}
-                <div className="meter-card">
-                  <div className="meter-header">
-                    <span>Members & Invites</span>
-                    <strong>
-                      {usageStats.totalMembers} / {usageStats.maxMembers}
-                    </strong>
-                  </div>
-                  <div className="meter-track">
-                    <div
-                      className="meter-fill"
-                      style={{
-                        width: `${Math.min(
-                          (usageStats.totalMembers / usageStats.maxMembers) * 100,
-                          100
-                        )}%`,
-                        backgroundColor: usageStats.isMemberLimitReached
-                          ? '#ef4444'
-                          : '#3b82f6',
-                      }}
-                    />
-                  </div>
-                  <div className="meter-footer">
-                    {usageStats.isMemberLimitReached
-                      ? 'Limit reached - Upgrade plan to invite more'
-                      : `${usageStats.maxMembers - usageStats.totalMembers} seats available`}
-                  </div>
-                </div>
-
-                {/* Workspaces Meter */}
-                <div className="meter-card">
-                  <div className="meter-header">
-                    <span>Workspaces</span>
-                    <strong>
-                      {usageStats.totalWorkspaces} / {usageStats.maxWorkspaces}
-                    </strong>
-                  </div>
-                  <div className="meter-track">
-                    <div
-                      className="meter-fill"
-                      style={{
-                        width: `${Math.min(
-                          (usageStats.totalWorkspaces / usageStats.maxWorkspaces) * 100,
-                          100
-                        )}%`,
-                        backgroundColor: usageStats.isWorkspaceLimitReached
-                          ? '#ef4444'
-                          : '#10b981',
-                      }}
-                    />
-                  </div>
-                  <div className="meter-footer">
-                    {usageStats.maxWorkspaces - usageStats.totalWorkspaces} workspaces remaining
-                  </div>
-                </div>
-
-                {/* Boards Meter */}
-                <div className="meter-card">
-                  <div className="meter-header">
-                    <span>Boards Allowance</span>
-                    <strong>
-                      {usageStats.totalBoards} /{' '}
-                      {usageStats.maxBoards > 9999 ? 'Unlimited' : usageStats.maxBoards}
-                    </strong>
-                  </div>
-                  <div className="meter-track">
-                    <div
-                      className="meter-fill"
-                      style={{
-                        width: `${
-                          usageStats.maxBoards > 9999
-                            ? 12
-                            : Math.min((usageStats.totalBoards / usageStats.maxBoards) * 100, 100)
-                        }%`,
-                        backgroundColor: '#8b5cf6',
-                      }}
-                    />
-                  </div>
-                  <div className="meter-footer">
-                    {usageStats.maxBoards > 9999
-                      ? 'Unlimited boards enabled on Pro'
-                      : `${usageStats.maxBoards - usageStats.totalBoards} boards remaining`}
-                  </div>
-                </div>
-
-                {/* Storage Meter */}
-                <div className="meter-card">
-                  <div className="meter-header">
-                    <span>Storage Consumed</span>
-                    <strong>
-                      {(usageStats.usedStorageBytes / (1024 * 1024)).toFixed(1)} MB /{' '}
-                      {(usageStats.maxStorageBytes / (1024 * 1024 * 1024)).toFixed(0)} GB
-                    </strong>
-                  </div>
-                  <div className="meter-track">
-                    <div
-                      className="meter-fill"
-                      style={{
-                        width: `${Math.min(
-                          (usageStats.usedStorageBytes / usageStats.maxStorageBytes) * 100,
-                          100
-                        )}%`,
-                        backgroundColor: '#f59e0b',
-                      }}
-                    />
-                  </div>
-                  <div className="meter-footer">Secure Supabase Storage Cloud</div>
-                </div>
               </div>
             </div>
           )}

@@ -36,6 +36,9 @@ interface AuthContextType {
   createOrganisation: (orgName: string, planId?: string) => Promise<{ success: boolean; organisationId?: string; organisation?: Organisation; error?: string }>;
   claimInvitation: (token: string) => Promise<{ success: boolean; organisationId?: string; organisation?: Organisation; error?: string }>;
   joinOrganisation: (orgId: string, role?: UserRole) => Promise<{ success: boolean; organisation?: Organisation; error?: string }>;
+  joinWithCode: (code: string) => Promise<{ success: boolean; organisationId?: string; organisation?: Organisation; error?: string }>;
+  registerWorkerAndJoin: (fullName: string, email: string, password: string, joinCode: string) => Promise<{ success: boolean; organisation?: Organisation; error?: string }>;
+  registerOwnerAndCreateOrg: (fullName: string, email: string, password: string, orgName: string) => Promise<{ success: boolean; organisation?: Organisation; joinCode?: string; error?: string }>;
   refreshMemberships: () => Promise<void>;
 }
 
@@ -311,6 +314,85 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { success: false, error: res.error || 'Failed to join organisation' };
   };
 
+  const joinWithCode = async (code: string) => {
+    const res = await authService.claimJoinCode(code);
+    if (res.success && res.organisation) {
+      await refreshMemberships();
+      setActiveOrg(res.organisation);
+      setActiveRole('member');
+      tenantService.setActiveOrgId(res.organisation.id);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(ACTIVE_ORG_STORAGE_KEY, res.organisation.id);
+      }
+      setAuthScreen('authenticated');
+      return { success: true, organisationId: res.organisationId, organisation: res.organisation };
+    }
+    return { success: false, error: res.error || 'Invalid organisation code' };
+  };
+
+  const registerWorkerAndJoin = async (fullName: string, email: string, password: string, joinCode: string) => {
+    setAuthError(null);
+    const cleanCode = (joinCode || '').trim().toUpperCase();
+    const targetOrg = tenantService.findOrgByJoinCode(cleanCode);
+    if (!targetOrg) {
+      const err = `Invalid joining code "${cleanCode}". Please verify the code with your organisation owner.`;
+      setAuthError(err);
+      return { success: false, error: err };
+    }
+
+    // 1. Sign up user account
+    const regRes = await authService.signUp(fullName, email, password);
+    if (regRes.error) {
+      setAuthError(regRes.error);
+      return { success: false, error: regRes.error };
+    }
+
+    // 2. Prepare user profile for membership
+    const registeredUser: UserProfile = {
+      id: regRes.user?.id || `usr-${Date.now()}`,
+      email: email.trim().toLowerCase(),
+      name: fullName.trim(),
+      initials: fullName.trim().split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) || 'U',
+      avatarColor: '#10b981',
+      isPlatformAdmin: false,
+    };
+
+    // 3. Atomically add to organisation before syncing session
+    tenantService.joinWithCode(cleanCode, registeredUser);
+
+    // 4. Sync session now (memberships will already include targetOrg!)
+    if (regRes.session) {
+      await syncUserSession(regRes.session);
+    }
+
+    // 5. Explicitly activate organisation
+    setActiveOrg(targetOrg);
+    setActiveRole('member');
+    tenantService.setActiveOrgId(targetOrg.id);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(ACTIVE_ORG_STORAGE_KEY, targetOrg.id);
+    }
+    setAuthScreen('authenticated');
+
+    return { success: true, organisation: targetOrg };
+  };
+
+  const registerOwnerAndCreateOrg = async (fullName: string, email: string, password: string, orgName: string) => {
+    setAuthError(null);
+    const regRes = await register(fullName, email, password);
+    if (!regRes.success) {
+      return { success: false, error: regRes.error };
+    }
+
+    const orgRes = await createOrganisation(orgName);
+    if (!orgRes.success) {
+      return { success: false, error: orgRes.error };
+    }
+
+    const joinCode = tenantService.getOrgJoinCode(orgRes.organisationId);
+    return { success: true, organisation: orgRes.organisation, joinCode };
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -334,6 +416,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         createOrganisation,
         claimInvitation,
         joinOrganisation,
+        joinWithCode,
+        registerWorkerAndJoin,
+        registerOwnerAndCreateOrg,
         refreshMemberships,
       }}
     >

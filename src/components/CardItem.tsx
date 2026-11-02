@@ -23,7 +23,11 @@ export const CardItem: React.FC<CardItemProps> = ({ card }) => {
     .filter(Boolean);
 
   const members = card.members
-    .map((mId) => activeBoard.members.find((m) => m.id === mId))
+    .map((mId) =>
+      activeBoard.members.find(
+        (m) => m.id === mId || m.userId === mId || (m as any).memberId === mId
+      )
+    )
     .filter(Boolean);
 
   // Checklists summary

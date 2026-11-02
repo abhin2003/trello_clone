@@ -17,14 +17,14 @@ export const OrgNotificationsPage: React.FC = () => {
     {
       id: 'notif-2',
       title: 'Supabase Cloud Persistence Connected',
-      message: 'Multi-tenant database triggers are actively enforcing board and member quotas.',
+      message: 'Multi-tenant database triggers and real-time syncing are actively enabled.',
       time: '1 hour ago',
       type: 'success',
     },
     {
       id: 'notif-3',
-      title: 'Subscription Plan Verified',
-      message: `Current plan is ${activeOrg.planId.toUpperCase()} with full tenant isolation.`,
+      title: 'Organisation Security Verified',
+      message: 'Full tenant isolation and unlimited collaborative access are active.',
       time: '1 day ago',
       type: 'security',
     },
@@ -37,7 +37,7 @@ export const OrgNotificationsPage: React.FC = () => {
           <div>
             <h1 className="page-heading">Notifications</h1>
             <p className="page-subheading">
-              System alerts, mentions, and subscription updates for <strong>{activeOrg.name}</strong>.
+              System alerts, team mentions, and activity updates for <strong>{activeOrg.name}</strong>.
             </p>
           </div>
         </div>

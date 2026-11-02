@@ -24,7 +24,6 @@ import { OrgWorkspacesPage } from './components/org/OrgWorkspacesPage';
 import { OrgBoardsPage } from './components/org/OrgBoardsPage';
 import { OrgBoardDetailPage } from './components/org/OrgBoardDetailPage';
 import { OrgMembersPage } from './components/org/OrgMembersPage';
-import { OrgActivityPage } from './components/org/OrgActivityPage';
 import { OrgNotificationsPage } from './components/org/OrgNotificationsPage';
 import { OrgSettingsPage } from './components/org/OrgSettingsPage';
 import { OrgSuspendedPage } from './components/org/OrgSuspendedPage';
@@ -47,7 +46,7 @@ import { Kanban, RefreshCw } from 'lucide-react';
 export const AppRouter: React.FC = () => {
   const { currentPath, searchParams } = useRouter();
   const navigate = useNavigate();
-  const { session, userProfile, memberships, loading } = useAuth();
+  const { session, userProfile, memberships, loading, joinWithCode, refreshMemberships } = useAuth();
   const { refreshTenantState } = useTenant();
 
   // Helper: compute destination after authentication
@@ -64,9 +63,27 @@ export const AppRouter: React.FC = () => {
     return '/organizations/select';
   };
 
-  // Redirect away from login/register if already authenticated
+  // Redirect away from login/register if already authenticated & handle direct invite codes
   useEffect(() => {
     if (!loading && session) {
+      const codeParam = searchParams.get('code');
+      if (codeParam && (currentPath === '/login' || currentPath === '/register' || currentPath === '/')) {
+        // Authenticated user opened an invite link with ?code=
+        joinWithCode(codeParam)
+          .then((res) => {
+            if (res.success && res.organisation) {
+              refreshTenantState();
+              navigate(`/org/${res.organisation.slug}/dashboard`, { replace: true });
+            } else {
+              navigate(getAuthenticatedDefaultDestination(), { replace: true });
+            }
+          })
+          .catch(() => {
+            navigate(getAuthenticatedDefaultDestination(), { replace: true });
+          });
+        return;
+      }
+
       if (currentPath === '/login' || currentPath === '/register') {
         const redirectParam = searchParams.get('redirect');
         if (redirectParam && redirectParam !== '/login' && redirectParam !== '/register') {
@@ -224,14 +241,30 @@ export const AppRouter: React.FC = () => {
     }
 
     // Access control: User must belong to this org OR be a platform admin
-    const userHasMembership = memberships.some(
+    const isMemberInTenant = Boolean(tenantService.getCurrentUserRole(matchedOrg.id));
+    let userHasMembership = memberships.some(
       (m) => m.organisation.id === matchedOrg.id || m.organisation.slug === orgSlug
-    );
+    ) || isMemberInTenant;
     const isPlatformAdmin = Boolean(userProfile?.isPlatformAdmin);
+
+    // If not a member yet, check if a valid join code was provided in URL (?code=...)
+    const codeParam = searchParams.get('code');
+    if (!userHasMembership && codeParam) {
+      const cleanParam = codeParam.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const orgCode = (matchedOrg.joinCode || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (cleanParam && cleanParam === orgCode) {
+        tenantService.joinWithCode(codeParam);
+        refreshMemberships();
+        refreshTenantState();
+        userHasMembership = true;
+      }
+    }
 
     if (!userHasMembership && !isPlatformAdmin) {
       return (
         <AccessDeniedPage
+          orgSlug={orgSlug}
+          orgName={matchedOrg.name}
           message={`You do not have access to organisation "${matchedOrg.name}".`}
           reason="Your authenticated account is not registered as an active member of this tenant."
         />
@@ -269,7 +302,9 @@ export const AppRouter: React.FC = () => {
       return <OrgMembersPage />;
     }
     if (subRoute === 'activity') {
-      return <OrgActivityPage />;
+      // Audit page removed; navigate to dashboard
+      navigate(`/org/${orgSlug}/dashboard`, { replace: true });
+      return null;
     }
     if (subRoute === 'notifications') {
       return <OrgNotificationsPage />;

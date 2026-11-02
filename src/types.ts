@@ -39,6 +39,10 @@ export interface Member {
   initials: string;
   avatarColor: string;
   email: string;
+  userId?: string;
+  memberId?: string;
+  role?: string;
+  jobTitle?: string;
 }
 
 export interface Card {
@@ -97,6 +101,9 @@ export interface FilterOptions {
 export interface ChatMessage {
   id: string;
   senderId: string;
+  recipientId?: string;
+  senderName?: string;
+  senderEmail?: string;
   text: string;
   timestamp: string;
   status: 'sent' | 'delivered' | 'read';

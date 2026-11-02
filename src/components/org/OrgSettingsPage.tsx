@@ -4,7 +4,6 @@ import {
   Shield,
   Download,
   Lock,
-  Zap,
 } from 'lucide-react';
 import { OrgLayout } from './OrgLayout';
 import { useTenant } from '../../context/TenantContext';
@@ -16,13 +15,10 @@ export const OrgSettingsPage: React.FC = () => {
     activeOrg,
     updateOrg,
     isAdmin,
-    plans,
-    usageStats,
     exportOrgData,
-    setIsUpgradeModalOpen,
   } = useTenant();
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'plan'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'security'>('profile');
   const [name, setName] = useState(activeOrg.name);
   const [logoUrl, setLogoUrl] = useState(activeOrg.logoUrl || '');
   const [primaryColor, setPrimaryColor] = useState(activeOrg.primaryColor || '#3b82f6');
@@ -30,7 +26,6 @@ export const OrgSettingsPage: React.FC = () => {
   const [enforceInvites, setEnforceInvites] = useState(activeOrg.enforceAdminInvitesOnly ?? true);
   const [saveFeedback, setSaveFeedback] = useState(false);
 
-  const currentPlan = plans.find((p) => p.id === activeOrg.planId) || plans[0];
   const orgSlug = activeOrg.slug || 'acme-corp';
 
   // Access check: only admins can access settings
@@ -73,7 +68,7 @@ export const OrgSettingsPage: React.FC = () => {
           <div>
             <h1 className="page-heading">Organisation Settings</h1>
             <p className="page-subheading">
-              Manage custom branding, security policies, and subscription quotas for <strong>{activeOrg.name}</strong>.
+              Manage custom branding and security policies for <strong>{activeOrg.name}</strong>.
             </p>
           </div>
 
@@ -100,13 +95,6 @@ export const OrgSettingsPage: React.FC = () => {
           >
             <Shield size={16} />
             <span>Security & Isolation</span>
-          </button>
-          <button
-            className={`admin-tab-btn ${activeTab === 'plan' ? 'active' : ''}`}
-            onClick={() => setActiveTab('plan')}
-          >
-            <Zap size={16} />
-            <span>Plan & Quota Limits</span>
           </button>
         </div>
 
@@ -231,55 +219,6 @@ export const OrgSettingsPage: React.FC = () => {
               <p style={{ fontSize: '0.82rem', margin: '4px 0 0 0', color: 'var(--text-secondary)' }}>
                 All boards, tasks, comments, and members are isolated by foreign key <code>organisation_id = '{activeOrg.id}'</code> and validated against active user session in Supabase.
               </p>
-            </div>
-          </div>
-        )}
-
-        {/* Tab 3: Plan & Quotas */}
-        {activeTab === 'plan' && (
-          <div className="members-table-card" style={{ padding: '1.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <div>
-                <h3 style={{ margin: '0 0 4px 0', fontSize: '1.1rem' }}>Subscription & Quotas</h3>
-                <p style={{ margin: 0, fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
-                  Current tier: <strong style={{ textTransform: 'capitalize' }}>{currentPlan.name}</strong>
-                </p>
-              </div>
-
-              <button
-                type="button"
-                className="primary-cta-btn"
-                onClick={() => setIsUpgradeModalOpen(true)}
-              >
-                <Zap size={15} />
-                <span>Upgrade Plan</span>
-              </button>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
-              <div className="metric-card" style={{ padding: '1rem' }}>
-                <div className="metric-label" style={{ fontSize: '0.74rem' }}>Board Quota</div>
-                <div className="metric-val" style={{ fontSize: '1.3rem' }}>
-                  {usageStats.totalBoards} / {currentPlan.maxBoards === 999999 ? '∞' : currentPlan.maxBoards}
-                </div>
-                <div className="metric-sub" style={{ fontSize: '0.75rem' }}>Active boards</div>
-              </div>
-
-              <div className="metric-card" style={{ padding: '1rem' }}>
-                <div className="metric-label" style={{ fontSize: '0.74rem' }}>Member Allowance</div>
-                <div className="metric-val" style={{ fontSize: '1.3rem' }}>
-                  {usageStats.totalMembers} / {currentPlan.maxMembers === 999999 ? '∞' : currentPlan.maxMembers}
-                </div>
-                <div className="metric-sub" style={{ fontSize: '0.75rem' }}>Registered members</div>
-              </div>
-
-              <div className="metric-card" style={{ padding: '1rem' }}>
-                <div className="metric-label" style={{ fontSize: '0.74rem' }}>Workspace Limit</div>
-                <div className="metric-val" style={{ fontSize: '1.3rem' }}>
-                  {usageStats.totalWorkspaces} / {currentPlan.maxWorkspaces === 999999 ? '∞' : currentPlan.maxWorkspaces}
-                </div>
-                <div className="metric-sub" style={{ fontSize: '0.75rem' }}>Workspaces created</div>
-              </div>
             </div>
           </div>
         )}

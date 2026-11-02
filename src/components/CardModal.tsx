@@ -196,7 +196,9 @@ export const CardModal: React.FC = () => {
                   <span className="badge-group-title">Members</span>
                   <div className="members-pills">
                     {card.members.map((mId) => {
-                      const m = activeBoard.members.find((mem) => mem.id === mId);
+                      const m = activeBoard.members.find(
+                        (mem) => mem.id === mId || mem.userId === mId || (mem as any).memberId === mId
+                      );
                       if (!m) return null;
                       return (
                         <div
@@ -530,25 +532,40 @@ export const CardModal: React.FC = () => {
                       </button>
                     </div>
                     <div className="popover-list">
-                      {activeBoard.members.map((mem) => {
-                        const isAssigned = card.members.includes(mem.id);
-                        return (
-                          <div
-                            key={mem.id}
-                            className={`popover-item ${isAssigned ? 'selected' : ''}`}
-                            onClick={() => toggleCardMember(card.id, mem.id)}
-                          >
+                      {activeBoard.members.length === 0 ? (
+                        <div
+                          style={{
+                            padding: '16px 14px',
+                            fontSize: '13px',
+                            color: 'var(--text-secondary)',
+                            textAlign: 'center',
+                          }}
+                        >
+                          No organisation members found
+                        </div>
+                      ) : (
+                        activeBoard.members.map((mem) => {
+                          const isAssigned = card.members.some(
+                            (id) => id === mem.id || id === mem.userId || id === (mem as any).memberId
+                          );
+                          return (
                             <div
-                              className="member-mini-avatar"
-                              style={{ backgroundColor: mem.avatarColor }}
+                              key={mem.id}
+                              className={`popover-item ${isAssigned ? 'selected' : ''}`}
+                              onClick={() => toggleCardMember(card.id, mem.id)}
                             >
-                              {mem.initials}
+                              <div
+                                className="member-mini-avatar"
+                                style={{ backgroundColor: mem.avatarColor }}
+                              >
+                                {mem.initials}
+                              </div>
+                              <span className="popover-label">{mem.name}</span>
+                              {isAssigned && <CheckCircle2 size={15} className="check-icon" />}
                             </div>
-                            <span className="popover-label">{mem.name}</span>
-                            {isAssigned && <CheckCircle2 size={15} className="check-icon" />}
-                          </div>
-                        );
-                      })}
+                          );
+                        })
+                      )}
                     </div>
                   </div>
                 )}

@@ -1,8 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import type { Board, Card, FilterOptions, BoardBackground, ChatMessage } from '../types';
-import { INITIAL_BOARDS, DEFAULT_LABELS, DEFAULT_MEMBERS, INITIAL_CHATS, MEMBER_REPLIES } from '../data/initialData';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import type { Board, Card, FilterOptions, BoardBackground, ChatMessage, Member } from '../types';
+import { INITIAL_BOARDS, DEFAULT_LABELS, INITIAL_CHATS } from '../data/initialData';
 import { useTenant } from './TenantContext';
-import { tenantService } from '../services/tenantService';
+import { useAuth } from './AuthContext';
 import confetti from 'canvas-confetti';
 
 const STORAGE_KEY = 'stratcrest_flow_boards_v1';
@@ -75,6 +75,7 @@ interface BoardContextType {
   chatMessages: Record<string, ChatMessage[]>;
   isTyping: boolean;
   sendChatMessage: (memberId: string, text: string) => void;
+  broadcastTyping?: (recipientId: string, isTyping: boolean) => void;
 }
 
 const defaultFilter: FilterOptions = {
@@ -186,12 +187,48 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeCardId, isFilterOpen, isShortcutsOpen, isNewBoardOpen, isBgPickerOpen, isSidebarOpen]);
 
-  const { activeOrg, setIsUpgradeModalOpen, setQuotaWarning } = useTenant();
+  const { activeOrg, members: orgMembers } = useTenant();
+
+  // Organisation's real members mapped to Member interface
+  const currentOrgMembers = useMemo<Member[]>(() => {
+    if (orgMembers && orgMembers.length > 0) {
+      return orgMembers.map((m) => {
+        const fullName = m.user?.name || m.user?.email?.split('@')[0] || 'Team Member';
+        const initials =
+          m.user?.initials ||
+          (fullName.trim()
+            ? fullName
+                .split(' ')
+                .map((n) => n[0])
+                .join('')
+                .slice(0, 2)
+                .toUpperCase()
+            : 'U');
+        return {
+          id: m.userId || m.id,
+          userId: m.userId,
+          memberId: m.id,
+          name: fullName,
+          initials: initials || 'U',
+          avatarColor: m.user?.avatarColor || '#3b82f6',
+          email: m.user?.email || '',
+          role: m.role,
+          jobTitle: m.jobTitle,
+        };
+      });
+    }
+    return [];
+  }, [orgMembers]);
 
   // Filter boards to ONLY those belonging to the active organisation
   const tenantBoards = useMemo(() => {
-    return boards.filter((b) => (b.organisationId || 'org-acme') === activeOrg.id);
-  }, [boards, activeOrg.id]);
+    return boards
+      .filter((b) => (b.organisationId || 'org-acme') === activeOrg.id)
+      .map((b) => ({
+        ...b,
+        members: currentOrgMembers.length > 0 ? currentOrgMembers : (b.members || []),
+      }));
+  }, [boards, activeOrg.id, currentOrgMembers]);
 
   // Ensure active board is within this tenant
   useEffect(() => {
@@ -204,21 +241,21 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const activeBoard = useMemo(() => {
     const found = tenantBoards.find((b) => b.id === activeBoardId);
-    return found || tenantBoards[0] || boards[0];
-  }, [tenantBoards, activeBoardId, boards]);
+    const board = found || tenantBoards[0] || boards[0];
+    if (board && currentOrgMembers.length > 0) {
+      return {
+        ...board,
+        members: currentOrgMembers,
+      };
+    }
+    return board;
+  }, [tenantBoards, activeBoardId, boards, currentOrgMembers]);
 
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
   const createBoard = (title: string, background: BoardBackground, description?: string, workspaceId?: string): string => {
-    const stats = tenantService.getUsageStats(activeOrg.id, tenantBoards.length);
-    if (stats.isBoardLimitReached) {
-      setQuotaWarning(`Board limit reached: Plan "${stats.plan.name}" allows up to ${stats.maxBoards} boards. Please upgrade your subscription.`);
-      setIsUpgradeModalOpen(true);
-      throw new Error(`Board limit reached for current subscription plan.`);
-    }
-
     const newBoardId = `board-${Date.now()}`;
     const newBoard: Board = {
       id: newBoardId,
@@ -229,7 +266,7 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       isStarred: false,
       background,
       labels: DEFAULT_LABELS,
-      members: DEFAULT_MEMBERS,
+      members: currentOrgMembers.length > 0 ? currentOrgMembers : [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       lists: [
@@ -614,8 +651,16 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const toggleCardMember = (cardId: string, memberId: string) => {
     const card = activeBoard.cards[cardId];
     if (!card) return;
-    const exists = card.members.includes(memberId);
-    const newMembers = exists ? card.members.filter((id) => id !== memberId) : [...card.members, memberId];
+    const targetMem = activeBoard.members.find(
+      (m) => m.id === memberId || m.userId === memberId || m.memberId === memberId
+    );
+    const matchIds = targetMem
+      ? [targetMem.id, targetMem.userId, targetMem.memberId].filter((id): id is string => Boolean(id))
+      : [memberId];
+    const exists = card.members.some((id) => matchIds.includes(id));
+    const newMembers = exists
+      ? card.members.filter((id) => !matchIds.includes(id))
+      : [...card.members, memberId];
     updateCard(cardId, { members: newMembers });
   };
 

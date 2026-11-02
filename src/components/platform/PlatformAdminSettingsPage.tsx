@@ -1,14 +1,9 @@
 import React, { useState } from 'react';
 import { PlatformAdminLayout } from './PlatformAdminLayout';
 import { tenantService } from '../../services/tenantService';
-import type { SubscriptionPlan, SubscriptionPlanId } from '../../types/saas';
-import { Sliders, KeyRound, Check, Save, AlertTriangle } from 'lucide-react';
+import { Sliders, KeyRound, Check, AlertTriangle } from 'lucide-react';
 
 export const PlatformAdminSettingsPage: React.FC = () => {
-  const [plans, setPlans] = useState<SubscriptionPlan[]>(() => tenantService.getSubscriptionPlans());
-  const [editingPlanId, setEditingPlanId] = useState<SubscriptionPlanId | null>(null);
-  const [planEdits, setPlanEdits] = useState<Partial<SubscriptionPlan>>({});
-
   // Support break glass state
   const [supportOrgId, setSupportOrgId] = useState('');
   const [supportTicket, setSupportTicket] = useState('');
@@ -17,24 +12,6 @@ export const PlatformAdminSettingsPage: React.FC = () => {
   const [supportSuccessMsg, setSupportSuccessMsg] = useState<string | null>(null);
 
   const organisations = tenantService.getAllOrganisations();
-
-  const handleEditPlan = (plan: SubscriptionPlan) => {
-    setEditingPlanId(plan.id);
-    setPlanEdits({
-      name: plan.name,
-      monthlyPriceCents: plan.monthlyPriceCents,
-      maxMembers: plan.maxMembers,
-      maxWorkspaces: plan.maxWorkspaces,
-      storageAllowanceBytes: plan.storageAllowanceBytes,
-    });
-  };
-
-  const handleSavePlan = (planId: SubscriptionPlanId) => {
-    tenantService.updateSubscriptionPlan(planId, planEdits);
-    setPlans(tenantService.getSubscriptionPlans());
-    setEditingPlanId(null);
-    setPlanEdits({});
-  };
 
   const handleCreateSupportSession = (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,126 +27,21 @@ export const PlatformAdminSettingsPage: React.FC = () => {
   return (
     <PlatformAdminLayout
       title="Platform Settings & Governance"
-      subtitle="Subscription tier resource allocations, pricing structures, and emergency break-glass protocols"
+      subtitle="Security protocols, emergency break-glass sessions, and platform administration"
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-        {/* Subscription Plan Quotas */}
-        <div className="card" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+        {/* Unlimited Mode Banner */}
+        <div className="card" style={{ padding: '20px 24px', background: 'rgba(59, 130, 246, 0.05)', borderColor: 'rgba(59, 130, 246, 0.2)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Sliders size={20} style={{ color: '#3b82f6' }} />
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>
-              Subscription Tier Limits & Resource Quotas
-            </h2>
-          </div>
-          <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-            Adjust seat capacities, workspace quotas, storage ceilings, and pricing for each multi-tenant plan tier.
-          </p>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-            {plans.map((plan) => {
-              const isEditing = editingPlanId === plan.id;
-              return (
-                <div
-                  key={plan.id}
-                  style={{
-                    padding: '20px',
-                    borderRadius: '8px',
-                    background: 'var(--bg-subtle, rgba(255,255,255,0.02))',
-                    border: '1px solid var(--border-subtle)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <span style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>{plan.name}</span>
-                      <span className="badge-pill badge-primary" style={{ textTransform: 'uppercase', fontSize: '0.7rem' }}>
-                        {plan.id}
-                      </span>
-                    </div>
-
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', minHeight: '36px', marginBottom: '14px' }}>
-                      {plan.description}
-                    </p>
-
-                    {isEditing ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '14px' }}>
-                        <div>
-                          <label className="input-label" style={{ fontSize: '0.75rem' }}>Monthly Price ($)</label>
-                          <input
-                            type="number"
-                            className="input-field"
-                            value={((planEdits.monthlyPriceCents ?? plan.monthlyPriceCents) / 100).toFixed(0)}
-                            onChange={(e) =>
-                              setPlanEdits({ ...planEdits, monthlyPriceCents: Math.round(Number(e.target.value) * 100) })
-                            }
-                          />
-                        </div>
-                        <div>
-                          <label className="input-label" style={{ fontSize: '0.75rem' }}>Max Members</label>
-                          <input
-                            type="number"
-                            className="input-field"
-                            value={planEdits.maxMembers ?? plan.maxMembers}
-                            onChange={(e) => setPlanEdits({ ...planEdits, maxMembers: Number(e.target.value) })}
-                          />
-                        </div>
-                        <div>
-                          <label className="input-label" style={{ fontSize: '0.75rem' }}>Max Workspaces</label>
-                          <input
-                            type="number"
-                            className="input-field"
-                            value={planEdits.maxWorkspaces ?? plan.maxWorkspaces}
-                            onChange={(e) => setPlanEdits({ ...planEdits, maxWorkspaces: Number(e.target.value) })}
-                          />
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.84rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-                        <div>Price: <strong style={{ color: 'var(--text-primary)' }}>${(plan.monthlyPriceCents / 100).toFixed(0)}/mo</strong></div>
-                        <div>Max Members: <strong style={{ color: 'var(--text-primary)' }}>{plan.maxMembers > 10000 ? 'Unlimited' : plan.maxMembers}</strong></div>
-                        <div>Max Workspaces: <strong style={{ color: 'var(--text-primary)' }}>{plan.maxWorkspaces > 10000 ? 'Unlimited' : plan.maxWorkspaces}</strong></div>
-                        <div>Storage: <strong style={{ color: 'var(--text-primary)' }}>{(plan.storageAllowanceBytes / 1073741824).toFixed(0)} GB</strong></div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    {isEditing ? (
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          style={{ flex: 1, padding: '6px' }}
-                          onClick={() => setEditingPlanId(null)}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          style={{ flex: 1, padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
-                          onClick={() => handleSavePlan(plan.id)}
-                        >
-                          <Save size={14} />
-                          <span>Save</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        style={{ width: '100%', fontSize: '0.82rem' }}
-                        onClick={() => handleEditPlan(plan)}
-                      >
-                        Configure Quotas
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+            <div>
+              <h2 style={{ fontSize: '1.05rem', fontWeight: 600, margin: '0 0 4px 0', color: 'var(--text-primary)' }}>
+                Unlimited Platform Mode Active
+              </h2>
+              <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: 0 }}>
+                All organisations have unlimited boards, members, workspaces, and full feature access with no subscription constraints or quota limits.
+              </p>
+            </div>
           </div>
         </div>
 

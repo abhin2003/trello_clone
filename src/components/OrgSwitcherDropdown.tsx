@@ -7,7 +7,6 @@ import {
   Settings,
   Check,
   AlertTriangle,
-  Crown,
 } from 'lucide-react';
 
 export const OrgSwitcherDropdown: React.FC = () => {
@@ -21,7 +20,6 @@ export const OrgSwitcherDropdown: React.FC = () => {
     setIsOrgAdminOpen,
     setIsPlatformAdminOpen,
     setIsOnboardingOpen,
-    setIsUpgradeModalOpen,
   } = useTenant();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -39,19 +37,6 @@ export const OrgSwitcherDropdown: React.FC = () => {
     }
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [isOpen]);
-
-  const getPlanBadgeClass = (planId: string) => {
-    switch (planId) {
-      case 'enterprise':
-        return 'plan-badge-enterprise';
-      case 'professional':
-        return 'plan-badge-pro';
-      case 'starter':
-        return 'plan-badge-starter';
-      default:
-        return 'plan-badge-free';
-    }
-  };
 
   const getRoleBadgeClass = (role?: string) => {
     switch (role) {
@@ -95,9 +80,6 @@ export const OrgSwitcherDropdown: React.FC = () => {
             )}
           </div>
           <div className="org-sub-row">
-            <span className={`plan-pill ${getPlanBadgeClass(activeOrg.planId)}`}>
-              {activeOrg.planId.toUpperCase().replace('_', ' ')}
-            </span>
             {userRole && (
               <span className={`role-pill ${getRoleBadgeClass(userRole)}`}>
                 {userRole.toUpperCase()}
@@ -146,9 +128,6 @@ export const OrgSwitcherDropdown: React.FC = () => {
                       )}
                     </div>
                     <div className="org-item-tags">
-                      <span className={`plan-mini-tag ${getPlanBadgeClass(org.planId)}`}>
-                        {org.planId.toUpperCase()}
-                      </span>
                       <span className={`role-mini-tag ${getRoleBadgeClass(org.userRole)}`}>
                         {org.userRole}
                       </span>
@@ -177,17 +156,6 @@ export const OrgSwitcherDropdown: React.FC = () => {
                 <span>Organisation Settings</span>
               </button>
             )}
-
-            <button
-              className="dropdown-item"
-              onClick={() => {
-                setIsOpen(false);
-                setIsUpgradeModalOpen(true);
-              }}
-            >
-              <Crown size={15} className="text-amber" />
-              <span>Subscription & Plans</span>
-            </button>
 
             {isPlatformAdmin && (
               <button

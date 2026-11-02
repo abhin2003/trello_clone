@@ -21,6 +21,7 @@ export const NoOrganisationPage: React.FC = () => {
     createOrganisation,
     claimInvitation,
     joinOrganisation,
+    joinWithCode,
     selectOrganisation,
     logout,
     refreshMemberships,
@@ -62,15 +63,20 @@ export const NoOrganisationPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await claimInvitation(inviteToken.trim());
-      if (!res.success) {
-        setError(res.error || 'Invalid or expired invitation token');
+      const cleanInput = inviteToken.trim();
+      // Try joinWithCode first (handles org join codes like GGHJ-9771 and tokens)
+      const res = await joinWithCode(cleanInput);
+      if (res.success && res.organisation) {
+        navigate(`/org/${res.organisation.slug}/dashboard`);
+        return;
+      }
+
+      // Fallback to claimInvitation
+      const invRes = await claimInvitation(cleanInput);
+      if (!invRes.success) {
+        setError(res.error || invRes.error || 'Invalid or expired joining code or invitation token');
       } else {
-        const orgId = res.organisation?.id || res.organisationId;
-        const slug = res.organisation?.slug || 'acme-corp';
-        if (orgId) {
-          selectOrganisation(orgId);
-        }
+        const slug = invRes.organisation?.slug || 'acme-corp';
         navigate(`/org/${slug}/dashboard`);
       }
     } finally {
@@ -164,7 +170,7 @@ export const NoOrganisationPage: React.FC = () => {
             style={{ flex: 1, justifyContent: 'center' }}
           >
             <KeyRound size={16} />
-            <span>Claim Invite Token</span>
+            <span>Join with Code</span>
           </button>
         </div>
 
@@ -212,12 +218,12 @@ export const NoOrganisationPage: React.FC = () => {
           </form>
         )}
 
-        {/* Tab 2: Claim Invitation */}
+        {/* Tab 2: Claim Invitation or Join Code */}
         {activeTab === 'invite' && (
           <form onSubmit={handleClaim} className="auth-form" noValidate>
             <div className="form-group auth-field-group">
               <label className="form-label" htmlFor="invite-token-input">
-                Invitation Code / Token
+                Organisation Joining Code or Invite Token
               </label>
               <div className="input-with-icon">
                 <KeyRound size={17} className="input-icon" />
@@ -225,15 +231,15 @@ export const NoOrganisationPage: React.FC = () => {
                   id="invite-token-input"
                   type="text"
                   className="form-input"
-                  placeholder="tok-acme-72819"
+                  placeholder="e.g. GGHJ-9771"
                   value={inviteToken}
-                  onChange={(e) => setInviteToken(e.target.value)}
-                  style={{ fontFamily: 'monospace' }}
+                  onChange={(e) => setInviteToken(e.target.value.toUpperCase())}
+                  style={{ fontFamily: 'monospace', textTransform: 'uppercase' }}
                   required
                 />
               </div>
               <span className="field-hint" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                Check your email or ask your team administrator for an invite token.
+                Enter the organisation worker joining code (e.g. GGHJ-9771) or invitation token.
               </span>
             </div>
 

@@ -80,10 +80,10 @@ describe('Stratcrest Flow: Multi-Tenant SaaS Architecture Tests', () => {
       expect(stats.isBoardLimitReached).toBe(false); // Pro has 999999 boards
     });
 
-    it('should enforce member quota on invitations', () => {
+    it('should operate with unlimited quota on invitations', () => {
       // Find starter plan limits
       const starterPlan = INITIAL_PLANS.find((p) => p.id === 'starter')!;
-      expect(starterPlan.maxMembers).toBe(15);
+      expect(starterPlan.maxMembers).toBe(999999);
 
       // Verify inviting works when quota is not reached
       const invite = tenantService.inviteMember(
@@ -145,7 +145,7 @@ describe('Stratcrest Flow: Multi-Tenant SaaS Architecture Tests', () => {
       });
 
       expect(selfServeOrg.name).toBe('Cyberdyne Systems Corp');
-      expect(selfServeOrg.status).toBe('trial');
+      expect(selfServeOrg.status).toBe('active');
 
       // Current user should be owner
       const role = tenantService.getCurrentUserRole(selfServeOrg.id);
@@ -216,6 +216,53 @@ describe('Stratcrest Flow: Multi-Tenant SaaS Architecture Tests', () => {
       expect(Array.isArray(parsed.members)).toBe(true);
       expect(Array.isArray(parsed.workspaces)).toBe(true);
       expect(Array.isArray(parsed.auditLogs)).toBe(true);
+    });
+  });
+
+  describe('7. Organisation Join Codes & Worker Registration', () => {
+    it('should return join code for organisation and allow workers to find it', () => {
+      const code = tenantService.getOrgJoinCode('org-acme');
+      expect(code).toBeTruthy();
+      expect(code).toBe('ACME-2026');
+
+      const found = tenantService.findOrgByJoinCode('acme-2026');
+      expect(found).toBeDefined();
+      expect(found?.id).toBe('org-acme');
+    });
+
+    it('should allow worker to join organisation using join code', () => {
+      const workerProfile = {
+        id: 'user-worker-test',
+        email: 'worker.test@example.com',
+        name: 'Worker Test',
+        initials: 'WT',
+        avatarColor: '#10b981',
+      };
+
+      const result = tenantService.joinWithCode('ACME-2026', workerProfile, 'member');
+      expect(result.organisation.id).toBe('org-acme');
+      expect(result.member.userId).toBe('user-worker-test');
+      expect(result.member.role).toBe('member');
+
+      // Verify member appears in members list
+      const members = tenantService.getMembers('org-acme');
+      const joined = members.find((m) => m.userId === 'user-worker-test');
+      expect(joined).toBeDefined();
+    });
+
+    it('should reject invalid join code', () => {
+      expect(() => {
+        tenantService.joinWithCode('INVALID-CODE-999');
+      }).toThrow(/Invalid organisation joining code/);
+    });
+
+    it('should allow owner to regenerate join code', () => {
+      const oldCode = tenantService.getOrgJoinCode('org-technova');
+      const newCode = tenantService.regenerateOrgJoinCode('org-technova');
+
+      expect(newCode).toBeTruthy();
+      expect(newCode).not.toBe(oldCode);
+      expect(tenantService.findOrgByJoinCode(newCode)?.id).toBe('org-technova');
     });
   });
 });

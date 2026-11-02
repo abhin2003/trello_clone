@@ -5,7 +5,6 @@ import {
   X,
   Shield,
   Building2,
-  Sliders,
   KeyRound,
   FileText,
   AlertTriangle,
@@ -19,12 +18,12 @@ import {
   Clock,
   AlertOctagon,
 } from 'lucide-react';
-import type { SubscriptionPlanId, SubscriptionPlan } from '../types/saas';
+import type { SubscriptionPlanId } from '../types/saas';
 
 export const PlatformAdminPortal: React.FC = () => {
   const { isPlatformAdminOpen, setIsPlatformAdminOpen, refreshTenantState } = useTenant();
 
-  const [activeTab, setActiveTab] = useState<'tenants' | 'provision' | 'plans' | 'support' | 'logs'>('tenants');
+  const [activeTab, setActiveTab] = useState<'tenants' | 'provision' | 'support' | 'logs'>('tenants');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Provisioning form state
@@ -46,11 +45,6 @@ export const PlatformAdminPortal: React.FC = () => {
   const [supportReason, setSupportReason] = useState('');
   const [supportDuration, setSupportDuration] = useState(2);
   const [supportSuccessMsg, setSupportSuccessMsg] = useState<string | null>(null);
-
-  // Editable plans state
-  const [plans, setPlans] = useState<SubscriptionPlan[]>(() => tenantService.getSubscriptionPlans());
-  const [editingPlanId, setEditingPlanId] = useState<SubscriptionPlanId | null>(null);
-  const [planEdits, setPlanEdits] = useState<Partial<SubscriptionPlan>>({});
 
   // Reload organisations
   const organisations = useMemo(() => {
@@ -117,14 +111,6 @@ export const PlatformAdminPortal: React.FC = () => {
     setSupportTicket('');
     setSupportReason('');
     setTimeout(() => setSupportSuccessMsg(null), 4000);
-    refreshTenantState();
-  };
-
-  const handleSavePlan = (planId: SubscriptionPlanId) => {
-    tenantService.updateSubscriptionPlan(planId, planEdits);
-    setPlans(tenantService.getSubscriptionPlans());
-    setEditingPlanId(null);
-    setPlanEdits({});
     refreshTenantState();
   };
 
@@ -205,14 +191,6 @@ export const PlatformAdminPortal: React.FC = () => {
           >
             <Plus size={16} />
             <span>Provision Organisation</span>
-          </button>
-
-          <button
-            className={`portal-tab-btn ${activeTab === 'plans' ? 'active' : ''}`}
-            onClick={() => setActiveTab('plans')}
-          >
-            <Sliders size={16} />
-            <span>Subscription Plans & Limits</span>
           </button>
 
           <button
@@ -453,146 +431,6 @@ export const PlatformAdminPortal: React.FC = () => {
                     </button>
                   </div>
                 </form>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: SUBSCRIPTION PLANS & LIMITS */}
-          {activeTab === 'plans' && (
-            <div className="plans-tab-view animate-fade-in">
-              <div className="section-toolbar">
-                <div>
-                  <h3 className="section-heading">Platform Subscription Tiers & Quota Limits</h3>
-                  <p className="section-subheading">
-                    Configure maximum members, workspaces, boards, storage allowances, and feature flags. Enforced at both database and application levels.
-                  </p>
-                </div>
-              </div>
-
-              <div className="plans-cards-matrix">
-                {plans.map((p) => {
-                  const isEditing = editingPlanId === p.id;
-                  return (
-                    <div key={p.id} className="plan-editor-card">
-                      <div className="plan-card-top">
-                        <h4 className="plan-title">{p.name}</h4>
-                        <div className="plan-cost">
-                          ${(p.monthlyPriceCents / 100).toFixed(0)}
-                          <span className="text-muted text-sm">/mo</span>
-                        </div>
-                      </div>
-
-                      <p className="plan-desc">{p.description}</p>
-
-                      <div className="plan-limits-list">
-                        <div className="limit-row">
-                          <span>Max Members:</span>
-                          {isEditing ? (
-                            <input
-                              type="number"
-                              className="input-num-sm"
-                              value={planEdits.maxMembers ?? p.maxMembers}
-                              onChange={(e) =>
-                                setPlanEdits((prev) => ({
-                                  ...prev,
-                                  maxMembers: parseInt(e.target.value) || 0,
-                                }))
-                              }
-                            />
-                          ) : (
-                            <strong>{p.maxMembers > 9999 ? 'Unlimited' : p.maxMembers}</strong>
-                          )}
-                        </div>
-
-                        <div className="limit-row">
-                          <span>Max Workspaces:</span>
-                          {isEditing ? (
-                            <input
-                              type="number"
-                              className="input-num-sm"
-                              value={planEdits.maxWorkspaces ?? p.maxWorkspaces}
-                              onChange={(e) =>
-                                setPlanEdits((prev) => ({
-                                  ...prev,
-                                  maxWorkspaces: parseInt(e.target.value) || 0,
-                                }))
-                              }
-                            />
-                          ) : (
-                            <strong>
-                              {p.maxWorkspaces > 9999 ? 'Unlimited' : p.maxWorkspaces}
-                            </strong>
-                          )}
-                        </div>
-
-                        <div className="limit-row">
-                          <span>Max Boards:</span>
-                          {isEditing ? (
-                            <input
-                              type="number"
-                              className="input-num-sm"
-                              value={planEdits.maxBoards ?? p.maxBoards}
-                              onChange={(e) =>
-                                setPlanEdits((prev) => ({
-                                  ...prev,
-                                  maxBoards: parseInt(e.target.value) || 0,
-                                }))
-                              }
-                            />
-                          ) : (
-                            <strong>{p.maxBoards > 9999 ? 'Unlimited' : p.maxBoards}</strong>
-                          )}
-                        </div>
-
-                        <div className="limit-row">
-                          <span>Storage Allowance:</span>
-                          <strong>
-                            {(p.storageAllowanceBytes / (1024 * 1024 * 1024)).toFixed(0)} GB
-                          </strong>
-                        </div>
-
-                        <div className="limit-row">
-                          <span>Guest Access:</span>
-                          <strong>{p.allowGuestAccess ? 'Enabled' : 'Disabled'}</strong>
-                        </div>
-
-                        <div className="limit-row">
-                          <span>Custom Branding:</span>
-                          <strong>{p.allowCustomBranding ? 'Enabled' : 'Disabled'}</strong>
-                        </div>
-                      </div>
-
-                      <div className="plan-card-actions">
-                        {isEditing ? (
-                          <div className="action-row-tight">
-                            <button
-                              className="secondary-action-btn-sm"
-                              onClick={() => setEditingPlanId(null)}
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              className="primary-btn-sm"
-                              onClick={() => handleSavePlan(p.id)}
-                            >
-                              Save Limits
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            className="secondary-action-btn-sm w-full"
-                            onClick={() => {
-                              setEditingPlanId(p.id);
-                              setPlanEdits(p);
-                            }}
-                          >
-                            Edit Quotas
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
               </div>
             </div>
           )}

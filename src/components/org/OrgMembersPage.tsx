@@ -5,14 +5,19 @@ import {
   Mail,
   Copy,
   Check,
+  Key,
+  MessageSquare,
 } from 'lucide-react';
 import { OrgLayout } from './OrgLayout';
 import { useTenant } from '../../context/TenantContext';
+import { useBoard } from '../../context/BoardContext';
+import { useAuth } from '../../context/AuthContext';
 import type { UserRole } from '../../types/saas';
 
 export const OrgMembersPage: React.FC = () => {
   const {
     activeOrg,
+    orgJoinCode,
     members,
     invitations,
     isAdmin,
@@ -20,13 +25,17 @@ export const OrgMembersPage: React.FC = () => {
     updateMemberRole,
     removeMember,
     revokeInvite,
+    setIsJoinCodeModalOpen,
   } = useTenant();
+  const { openChat } = useBoard();
+  const { userProfile } = useAuth();
 
   const [isInviting, setIsInviting] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<UserRole>('member');
   const [inviteJob, setInviteJob] = useState('');
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const [copiedJoinCode, setCopiedJoinCode] = useState(false);
 
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,6 +73,87 @@ export const OrgMembersPage: React.FC = () => {
               <span>Invite Member</span>
             </button>
           )}
+        </div>
+
+        {/* Organisation Join Code Banner for Workers */}
+        <div
+          style={{
+            background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(37, 99, 235, 0.05))',
+            border: '1px solid rgba(59, 130, 246, 0.3)',
+            borderRadius: '12px',
+            padding: '16px 20px',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '16px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '10px',
+                background: 'rgba(59, 130, 246, 0.2)',
+                color: '#60a5fa',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Key size={22} />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.82rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>
+                Organisation Worker Joining Code
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
+                <span
+                  style={{
+                    fontFamily: 'monospace',
+                    fontSize: '1.4rem',
+                    fontWeight: 800,
+                    letterSpacing: '0.08em',
+                    color: '#60a5fa',
+                  }}
+                >
+                  {orgJoinCode || activeOrg.joinCode || 'ACME-2026'}
+                </span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  (Workers can use this code on the login page to create an account and join)
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button
+              type="button"
+              className="secondary-btn"
+              style={{ padding: '8px 14px', fontSize: '0.85rem' }}
+              onClick={() => setIsJoinCodeModalOpen(true)}
+              title="Open worker joining code popup window"
+            >
+              <span>Share Code Window</span>
+            </button>
+
+            <button
+              type="button"
+              className="primary-cta-btn"
+              style={{ padding: '8px 16px', fontSize: '0.85rem' }}
+              onClick={async () => {
+                const code = orgJoinCode || activeOrg.joinCode || '';
+                await navigator.clipboard.writeText(code);
+                setCopiedJoinCode(true);
+                setTimeout(() => setCopiedJoinCode(false), 2000);
+              }}
+            >
+              {copiedJoinCode ? <Check size={16} /> : <Copy size={16} />}
+              <span>{copiedJoinCode ? 'Copied Code!' : 'Copy Joining Code'}</span>
+            </button>
+          </div>
         </div>
 
         {/* Invite Member Inline Form */}
@@ -129,12 +219,21 @@ export const OrgMembersPage: React.FC = () => {
 
         {/* Active Members Table */}
         <div className="members-table-card">
-          <div className="members-table-header">
+          <div className="members-table-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
             <h3 style={{ margin: 0, fontSize: '0.95rem' }}>Active Members ({members.length})</h3>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <MessageSquare size={13} color="#3b82f6" />
+              <span>Click "Chat" on any team member to start a direct message thread</span>
+            </span>
           </div>
 
           <div className="members-table-list">
             {members.map((m) => {
+              const isCurrentUser = Boolean(
+                userProfile &&
+                (m.userId === userProfile.id || (m.user?.email && m.user.email === userProfile.email))
+              );
+
               return (
                 <div key={m.id} className="member-row">
                   <div className="member-row-avatar" style={{ backgroundColor: m.user?.avatarColor || '#3b82f6' }}>
@@ -153,6 +252,43 @@ export const OrgMembersPage: React.FC = () => {
                   </div>
 
                   <div className="member-row-actions">
+                    {/* Chat with Team Member Action */}
+                    {!isCurrentUser ? (
+                      <button
+                        type="button"
+                        className="secondary-btn"
+                        style={{
+                          padding: '5px 12px',
+                          fontSize: '0.8rem',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          color: '#3b82f6',
+                          borderColor: 'rgba(59, 130, 246, 0.35)',
+                          background: 'rgba(59, 130, 246, 0.08)',
+                          fontWeight: 500,
+                        }}
+                        onClick={() => openChat(m.userId || m.id)}
+                        title={`Chat with ${m.user?.name || 'team member'}`}
+                      >
+                        <MessageSquare size={13} />
+                        <span>Chat</span>
+                      </button>
+                    ) : (
+                      <span
+                        style={{
+                          fontSize: '0.74rem',
+                          color: 'var(--text-muted)',
+                          padding: '3px 8px',
+                          background: 'var(--bg-subtle)',
+                          borderRadius: '4px',
+                          border: '1px solid var(--border-subtle)',
+                        }}
+                      >
+                        (You)
+                      </span>
+                    )}
+
                     {isAdmin && m.role !== 'owner' ? (
                       <select
                         className="role-selector-dropdown"

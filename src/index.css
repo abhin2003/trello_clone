@@ -39,6 +39,8 @@
 :root[data-theme='dark'],
 :root {
   --bg-app: #0b0f19;
+  --bg-body: #0b0f19;
+  --bg-surface: #1e293b;
   --bg-header: rgba(15, 23, 42, 0.85);
   --bg-sidebar: #0f172a;
   --bg-list: rgba(24, 32, 54, 0.88);
@@ -73,6 +75,8 @@
 /* Light Theme */
 :root[data-theme='light'] {
   --bg-app: #f1f5f9;
+  --bg-body: #f1f5f9;
+  --bg-surface: #ffffff;
   --bg-header: rgba(255, 255, 255, 0.85);
   --bg-sidebar: #ffffff;
   --bg-list: rgba(241, 245, 249, 0.92);
@@ -1928,16 +1932,185 @@ body {
 .filter-modal-dialog,
 .new-board-dialog,
 .bg-picker-dialog,
-.shortcuts-dialog {
+.shortcuts-dialog,
+.modal-container,
+.org-join-modal {
   width: 100%;
-  max-width: 480px;
+  max-width: 520px;
+  background-color: var(--bg-modal);
   background: var(--bg-modal);
+  color: var(--text-primary);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35), var(--shadow-popover);
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  position: relative;
+  z-index: 1000;
+  animation: scaleUp 0.18s ease-out;
+}
+
+/* ==========================================================================
+   Dedicated Viewport-Centered Pop Up Window Component
+   ========================================================================== */
+.popup-window-backdrop {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.popup-window-card {
+  position: relative;
+  width: 100%;
+  max-width: 540px;
+  max-height: calc(100vh - 48px);
+  background: var(--bg-modal);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: popupScaleIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes popupScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.popup-window-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  user-select: none;
+}
+
+.popup-window-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.popup-window-icon-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(59, 130, 246, 0.12);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.popup-window-title {
+  font-family: var(--font-display);
+  font-size: 1.12rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+
+.popup-window-subtitle {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin: 2px 0 0 0;
+  line-height: 1.3;
+}
+
+.popup-window-close-btn {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.popup-window-close-btn:hover {
+  background: var(--bg-subtle-hover);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  transform: rotate(90deg);
+}
+
+.popup-window-body {
+  padding: 22px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.popup-code-showcase-box {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(139, 92, 246, 0.05) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 14px;
+  padding: 16px 20px;
+  text-align: center;
+  position: relative;
+}
+
+.popup-code-badge {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #3b82f6;
+  background: var(--bg-modal);
+  border: 1px dashed rgba(59, 130, 246, 0.5);
+  padding: 7px 18px;
+  border-radius: 10px;
+  display: inline-block;
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.12);
+}
+
+.popup-window-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 22px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-modal);
 }
 
 .modal-dialog-header {
@@ -5040,15 +5213,16 @@ body {
   position: absolute;
   top: calc(100% + 10px);
   right: 0;
-  width: 280px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
+  width: 290px;
+  background-color: var(--bg-card);
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  backdrop-filter: blur(16px);
+  box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.22), 0 6px 12px -2px rgba(0, 0, 0, 0.12), var(--shadow-popover);
   padding: 8px;
   z-index: 1000;
   animation: fadeIn 0.15s ease-out;
+  opacity: 1;
 }
 
 .user-popover-header {
@@ -5108,6 +5282,7 @@ body {
   gap: 10px;
   padding: 8px 10px;
   background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   margin-bottom: 6px;
 }
@@ -5150,12 +5325,12 @@ body {
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
   border: none;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 0.84rem;
+  font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
   transition: var(--transition-fast);
@@ -5163,7 +5338,7 @@ body {
 }
 
 .popover-menu-item:hover {
-  background: var(--bg-subtle);
+  background: var(--bg-subtle-hover, var(--bg-subtle));
   color: var(--text-primary);
 }
 
@@ -6253,6 +6428,47 @@ body {
   background: rgba(59, 130, 246, 0.15);
   color: #60a5fa;
   font-weight: 600;
+}
+
+.org-sidebar-sublink {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 20px;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.org-sidebar-sublink:hover {
+  background: var(--bg-subtle-hover);
+  color: var(--text-primary);
+}
+
+.org-sidebar-sublink.active {
+  background: rgba(59, 130, 246, 0.12);
+  color: #60a5fa;
+  font-weight: 600;
+}
+
+.org-sidebar-sublink .sublink-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  flex-shrink: 0;
+}
+
+.org-sidebar-sublink.active .sublink-dot {
+  background: #3b82f6;
 }
 
 .org-sidebar-link.platform-link {

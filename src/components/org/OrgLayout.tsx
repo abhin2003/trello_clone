@@ -4,11 +4,11 @@ import {
   Layers,
   Kanban,
   Users,
-  Activity,
   Bell,
   Settings,
   Shield,
   ExternalLink,
+  Plus,
 } from 'lucide-react';
 import { Link, useNavigate, useRouter } from '../../router/Router';
 import { Header } from '../Header';
@@ -17,8 +17,9 @@ import { SuspendedTenantBanner } from '../SuspendedTenantBanner';
 import { OrganisationAdminPortal } from '../OrganisationAdminPortal';
 import { PlatformAdminPortal } from '../PlatformAdminPortal';
 import { OnboardingModal } from '../OnboardingModal';
-import { PlanUpgradeModal } from '../PlanUpgradeModal';
 import { SupabaseModal } from '../SupabaseModal';
+import { CreateWorkspaceModal } from '../CreateWorkspaceModal';
+import { OrgJoinCodeModal } from '../OrgJoinCodeModal';
 import { Sidebar as BoardsDrawer } from '../Sidebar';
 import { CardModal } from '../CardModal';
 import { FilterModal } from '../FilterModal';
@@ -33,9 +34,19 @@ interface OrgLayoutProps {
 }
 
 export const OrgLayout: React.FC<OrgLayoutProps> = ({ children, activeNav = 'dashboard' }) => {
-  const { currentPath } = useRouter();
+  const { currentPath, searchParams } = useRouter();
   const navigate = useNavigate();
-  const { activeOrg, isAdmin, isPlatformAdmin, isSupabaseModalOpen, setIsSupabaseModalOpen } = useTenant();
+  const {
+    activeOrg,
+    isAdmin,
+    isPlatformAdmin,
+    isSupabaseModalOpen,
+    setIsSupabaseModalOpen,
+    setIsCreateWorkspaceOpen,
+    workspaces,
+    activeWorkspaceId,
+    setActiveWorkspaceId,
+  } = useTenant();
 
   const orgSlug = activeOrg.slug || 'acme-corp';
 
@@ -54,9 +65,6 @@ export const OrgLayout: React.FC<OrgLayoutProps> = ({ children, activeNav = 'das
                 style={{ backgroundColor: activeOrg.primaryColor || '#3b82f6' }}
               />
               <span className="sidebar-org-name">{activeOrg.name}</span>
-              <span className="badge-pill badge-neutral" style={{ fontSize: '0.65rem', textTransform: 'capitalize' }}>
-                {activeOrg.planId.replace('_', ' ')}
-              </span>
             </div>
           </div>
 
@@ -71,13 +79,58 @@ export const OrgLayout: React.FC<OrgLayoutProps> = ({ children, activeNav = 'das
               <span>Dashboard</span>
             </Link>
 
-            <Link
-              to={`/org/${orgSlug}/workspaces`}
-              className={`org-sidebar-link ${currentPath.includes('/workspaces') || activeNav === 'workspaces' ? 'active' : ''}`}
-            >
-              <Layers size={18} />
-              <span>Workspaces</span>
-            </Link>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <Link
+                to={`/org/${orgSlug}/workspaces`}
+                className={`org-sidebar-link ${currentPath.includes('/workspaces') || activeNav === 'workspaces' ? 'active' : ''}`}
+                style={{ flex: 1 }}
+              >
+                <Layers size={18} />
+                <span>Workspaces</span>
+              </Link>
+              <button
+                type="button"
+                className="icon-button"
+                style={{ width: '28px', height: '28px', marginRight: '6px' }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsCreateWorkspaceOpen(true);
+                }}
+                title="Create Workspace"
+              >
+                <Plus size={15} />
+              </button>
+            </div>
+
+            {/* Workspaces Sub-navigation */}
+            {workspaces.length > 0 && (
+              <div style={{ paddingLeft: '8px', marginBottom: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {workspaces.map((ws) => {
+                  const isWsActive =
+                    (searchParams.get('workspace') === ws.id) ||
+                    (!searchParams.get('workspace') && currentPath.includes('/boards') && activeWorkspaceId === ws.id);
+
+                  return (
+                    <button
+                      key={ws.id}
+                      type="button"
+                      className={`org-sidebar-sublink ${isWsActive ? 'active' : ''}`}
+                      onClick={() => {
+                        setActiveWorkspaceId(ws.id);
+                        navigate(`/org/${orgSlug}/boards?workspace=${ws.id}`);
+                      }}
+                      title={`Open ${ws.name} workspace boards`}
+                    >
+                      <span className="sublink-dot" />
+                      <span className="sublink-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {ws.name}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             <Link
               to={`/org/${orgSlug}/boards`}
@@ -93,14 +146,6 @@ export const OrgLayout: React.FC<OrgLayoutProps> = ({ children, activeNav = 'das
             >
               <Users size={18} />
               <span>Members & Teams</span>
-            </Link>
-
-            <Link
-              to={`/org/${orgSlug}/activity`}
-              className={`org-sidebar-link ${currentPath.includes('/activity') || activeNav === 'activity' ? 'active' : ''}`}
-            >
-              <Activity size={18} />
-              <span>Audit Activity</span>
             </Link>
 
             <Link
@@ -147,7 +192,8 @@ export const OrgLayout: React.FC<OrgLayoutProps> = ({ children, activeNav = 'das
       <OrganisationAdminPortal />
       <PlatformAdminPortal />
       <OnboardingModal />
-      <PlanUpgradeModal />
+      <CreateWorkspaceModal />
+      <OrgJoinCodeModal />
       <SupabaseModal isOpen={isSupabaseModalOpen} onClose={() => setIsSupabaseModalOpen(false)} />
 
       {/* Kanban Modals */}

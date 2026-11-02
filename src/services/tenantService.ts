@@ -22,58 +22,59 @@ const SAAS_AUDIT_KEY = 'stratcrest_saas_audit_logs_v1';
 const SAAS_PLANS_KEY = 'stratcrest_saas_plans_v1';
 const SAAS_SUPPORT_KEY = 'stratcrest_saas_support_sessions_v1';
 const SAAS_ACTIVE_ORG_KEY = 'stratcrest_saas_active_org_id_v1';
+const SAAS_CURRENT_USER_KEY = 'stratcrest_saas_current_user_v1';
 
-// Initial Plans
+// Initial Plans - Fully Unlimited (No restrictions or limits)
 export const INITIAL_PLANS: SubscriptionPlan[] = [
   {
     id: 'free_trial',
-    name: 'Free / Trial',
-    description: 'Perfect for small exploratory teams and initial proof-of-concept projects.',
+    name: 'Unlimited',
+    description: 'Full unconstrained access to unlimited boards, team members, and workspaces.',
     isActive: true,
-    trialDays: 14,
+    trialDays: 0,
     monthlyPriceCents: 0,
     yearlyPriceCents: 0,
-    maxMembers: 5,
-    maxWorkspaces: 2,
-    maxBoards: 3,
-    storageAllowanceBytes: 524288000, // 500 MB
-    maxAutomationsPerMonth: 100,
-    allowGuestAccess: false,
-    allowCustomBranding: false,
+    maxMembers: 999999,
+    maxWorkspaces: 999999,
+    maxBoards: 999999,
+    storageAllowanceBytes: 1099511627776,
+    maxAutomationsPerMonth: 1000000,
+    allowGuestAccess: true,
+    allowCustomBranding: true,
     allowDataExport: true,
-    allowAdvancedAuditLogs: false,
+    allowAdvancedAuditLogs: true,
   },
   {
     id: 'starter',
-    name: 'Starter',
-    description: 'Designed for growing teams needing structured workspaces and higher board allowances.',
+    name: 'Unlimited',
+    description: 'Full unconstrained access to unlimited boards, team members, and workspaces.',
     isActive: true,
-    trialDays: 14,
-    monthlyPriceCents: 2900,
-    yearlyPriceCents: 29000,
-    maxMembers: 15,
-    maxWorkspaces: 5,
-    maxBoards: 20,
-    storageAllowanceBytes: 10737418240, // 10 GB
-    maxAutomationsPerMonth: 1000,
+    trialDays: 0,
+    monthlyPriceCents: 0,
+    yearlyPriceCents: 0,
+    maxMembers: 999999,
+    maxWorkspaces: 999999,
+    maxBoards: 999999,
+    storageAllowanceBytes: 1099511627776,
+    maxAutomationsPerMonth: 1000000,
     allowGuestAccess: true,
-    allowCustomBranding: false,
+    allowCustomBranding: true,
     allowDataExport: true,
-    allowAdvancedAuditLogs: false,
+    allowAdvancedAuditLogs: true,
   },
   {
     id: 'professional',
-    name: 'Professional',
-    description: 'For modern enterprises needing unlimited boards, custom branding, and audit logging.',
+    name: 'Unlimited',
+    description: 'Full unconstrained access to unlimited boards, team members, and workspaces.',
     isActive: true,
-    trialDays: 14,
-    monthlyPriceCents: 7900,
-    yearlyPriceCents: 79000,
-    maxMembers: 100,
-    maxWorkspaces: 25,
+    trialDays: 0,
+    monthlyPriceCents: 0,
+    yearlyPriceCents: 0,
+    maxMembers: 999999,
+    maxWorkspaces: 999999,
     maxBoards: 999999,
-    storageAllowanceBytes: 107374182400, // 100 GB
-    maxAutomationsPerMonth: 10000,
+    storageAllowanceBytes: 1099511627776,
+    maxAutomationsPerMonth: 1000000,
     allowGuestAccess: true,
     allowCustomBranding: true,
     allowDataExport: true,
@@ -81,17 +82,17 @@ export const INITIAL_PLANS: SubscriptionPlan[] = [
   },
   {
     id: 'enterprise',
-    name: 'Enterprise',
-    description: 'Dedicated cloud tenancy, custom contracts, highest tier SLAs, and unlimited capacity.',
+    name: 'Unlimited',
+    description: 'Full unconstrained access to unlimited boards, team members, and workspaces.',
     isActive: true,
-    trialDays: 30,
-    monthlyPriceCents: 24900,
-    yearlyPriceCents: 249000,
+    trialDays: 0,
+    monthlyPriceCents: 0,
+    yearlyPriceCents: 0,
     maxMembers: 999999,
     maxWorkspaces: 999999,
     maxBoards: 999999,
-    storageAllowanceBytes: 1099511627776, // 1 TB
-    maxAutomationsPerMonth: 100000,
+    storageAllowanceBytes: 1099511627776,
+    maxAutomationsPerMonth: 1000000,
     allowGuestAccess: true,
     allowCustomBranding: true,
     allowDataExport: true,
@@ -115,6 +116,7 @@ const INITIAL_ORGS: Organisation[] = [
     id: 'org-acme',
     name: 'Acme Corporation',
     slug: 'acme-corp',
+    joinCode: 'ACME-2026',
     logoUrl: '',
     primaryColor: '#3b82f6',
     status: 'active',
@@ -129,6 +131,7 @@ const INITIAL_ORGS: Organisation[] = [
     id: 'org-technova',
     name: 'TechNova Solutions',
     slug: 'technova-solutions',
+    joinCode: 'TECH-2026',
     logoUrl: '',
     primaryColor: '#10b981',
     status: 'active',
@@ -143,6 +146,7 @@ const INITIAL_ORGS: Organisation[] = [
     id: 'org-stratcrest',
     name: 'Stratcrest Global Labs',
     slug: 'stratcrest-labs',
+    joinCode: 'STRAT-2026',
     logoUrl: '',
     primaryColor: '#8b5cf6',
     status: 'active',
@@ -501,6 +505,7 @@ class MultiTenantService {
     this.auditLogs = this.load(SAAS_AUDIT_KEY, INITIAL_AUDIT_LOGS);
     this.plans = this.load(SAAS_PLANS_KEY, INITIAL_PLANS);
     this.supportSessions = this.load(SAAS_SUPPORT_KEY, []);
+    this.currentUser = this.load(SAAS_CURRENT_USER_KEY, CURRENT_USER);
     
     // Default active org
     const savedActive = typeof localStorage !== 'undefined' ? localStorage.getItem(SAAS_ACTIVE_ORG_KEY) : null;
@@ -538,6 +543,7 @@ class MultiTenantService {
   // Active User
   setCurrentUser(profile: UserProfile): void {
     this.currentUser = profile;
+    this.save(SAAS_CURRENT_USER_KEY, profile);
   }
 
   getCurrentUser(): UserProfile {
@@ -574,7 +580,7 @@ class MultiTenantService {
     const cleanEmail = (this.currentUser.email || '').toLowerCase().trim();
     const userMemberOrgs = this.members.filter(m => {
       const mEmail = (m.user?.email || '').toLowerCase().trim();
-      const matchId = m.userId === cleanUserId || (cleanUserId === this.currentUser.id && m.userId === this.currentUser.id);
+      const matchId = m.userId === cleanUserId;
       const matchEmail = Boolean(cleanEmail && mEmail === cleanEmail);
       return (matchId || matchEmail) && m.isActive;
     });
@@ -643,10 +649,14 @@ class MultiTenantService {
     ownerName: string;
     primaryColor?: string;
   }): { organisation: Organisation; inviteToken: string } {
+    const rawPrefix = payload.slug.replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase() || 'ORG';
+    const code = `${rawPrefix}-${Math.floor(1000 + Math.random() * 9000)}`;
+
     const newOrg: Organisation = {
       id: uid('org'),
       name: payload.name,
       slug: payload.slug.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+      joinCode: code,
       logoUrl: '',
       primaryColor: payload.primaryColor || '#3b82f6',
       status: 'active',
@@ -710,15 +720,18 @@ class MultiTenantService {
     firstWorkspaceName: string;
     primaryColor?: string;
   }): Organisation {
+    const rawPrefix = payload.slug.replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase() || 'ORG';
+    const code = `${rawPrefix}-${Math.floor(1000 + Math.random() * 9000)}`;
+
     const newOrg: Organisation = {
       id: uid('org'),
       name: payload.name,
       slug: payload.slug.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+      joinCode: code,
       logoUrl: '',
       primaryColor: payload.primaryColor || '#3b82f6',
-      status: 'trial',
+      status: 'active',
       planId: payload.planId,
-      trialEndsAt: new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString(),
       usedStorageBytes: 0,
       enforceAdminInvitesOnly: true,
       createdAt: new Date().toISOString(),
@@ -798,13 +811,6 @@ class MultiTenantService {
     role: UserRole,
     jobTitle?: string
   ): OrganisationInvitation {
-    const stats = this.getUsageStats(orgId);
-    if (stats.isMemberLimitReached) {
-      throw new Error(
-        `Member limit reached: Your current plan "${stats.plan.name}" allows up to ${stats.maxMembers} members. Please upgrade your subscription to invite more users.`
-      );
-    }
-
     const token = `inv-tok-${Math.random().toString(36).substring(2, 12)}-${Date.now()}`;
     const newInvite: OrganisationInvitation = {
       id: uid('inv'),
@@ -898,13 +904,22 @@ class MultiTenantService {
     if (!org) throw new Error('Organisation not found');
 
     const user = this.currentUser || CURRENT_USER;
+    const cleanUserEmail = (user.email || '').trim().toLowerCase();
+    const cleanUserId = user.id;
+
     const existing = this.members.find(
-      m => m.organisationId === orgId && (m.userId === user.id || (m.user?.email && m.user.email.toLowerCase() === (user.email || '').toLowerCase()))
+      m => m.organisationId === orgId && (
+        m.userId === cleanUserId ||
+        (m.user?.email && m.user.email.toLowerCase().trim() === cleanUserEmail)
+      )
     );
 
     if (existing) {
       existing.isActive = true;
       existing.role = role;
+      if (user.name) existing.user.name = user.name;
+      if (user.initials) existing.user.initials = user.initials;
+      if (user.avatarColor) existing.user.avatarColor = user.avatarColor;
       this.save(SAAS_MEMBERS_KEY, this.members);
       this.setActiveOrgId(org.id);
       return { organisation: org, member: existing };
@@ -924,6 +939,75 @@ class MultiTenantService {
     this.save(SAAS_MEMBERS_KEY, this.members);
     this.setActiveOrgId(org.id);
     return { organisation: org, member: newMember };
+  }
+
+  getOrgJoinCode(orgId: string = this.activeOrgId): string {
+    const org = this.organisations.find((o) => o.id === orgId);
+    if (!org) return '';
+    if (!org.joinCode) {
+      const rawPrefix = (org.slug || org.name || 'ORG').replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase() || 'ORG';
+      org.joinCode = `${rawPrefix}-${Math.floor(1000 + Math.random() * 9000)}`;
+      this.save(SAAS_ORGS_KEY, this.organisations);
+    }
+    return org.joinCode;
+  }
+
+  regenerateOrgJoinCode(orgId: string = this.activeOrgId): string {
+    const org = this.organisations.find((o) => o.id === orgId);
+    if (!org) throw new Error('Organisation not found');
+    const rawPrefix = (org.slug || org.name || 'ORG').replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase() || 'ORG';
+    org.joinCode = `${rawPrefix}-${Math.floor(1000 + Math.random() * 9000)}`;
+    this.save(SAAS_ORGS_KEY, this.organisations);
+    this.logTenantAudit(orgId, 'organisation.join_code_regenerated', 'organisation', orgId, { newCode: org.joinCode });
+    return org.joinCode;
+  }
+
+  findOrgByJoinCode(code: string): Organisation | undefined {
+    const clean = (code || '').trim().toUpperCase();
+    if (!clean) return undefined;
+    const cleanStripped = clean.replace(/[^A-Z0-9]/g, '');
+
+    // 1. Direct join code match (exact or stripped of dashes)
+    const matched = this.organisations.find((o) => {
+      const orgCode = (o.joinCode || '').toUpperCase();
+      const orgStripped = orgCode.replace(/[^A-Z0-9]/g, '');
+      return orgCode === clean || (orgStripped && orgStripped === cleanStripped);
+    });
+    if (matched) return matched;
+
+    // 2. Invitation token match
+    const inv = this.invitations.find((i) => {
+      const token = i.token.toUpperCase();
+      return (token === clean || token.replace(/[^A-Z0-9]/g, '') === cleanStripped) && i.status === 'pending';
+    });
+    if (inv) {
+      return this.organisations.find((o) => o.id === inv.organisationId);
+    }
+    return undefined;
+  }
+
+  joinWithCode(
+    code: string,
+    user?: UserProfile,
+    role: UserRole = 'member'
+  ): { organisation: Organisation; member: OrganisationMember } {
+    const org = this.findOrgByJoinCode(code);
+    if (!org) {
+      throw new Error(`Invalid organisation joining code "${code}". Please check with your organisation owner.`);
+    }
+    if (user) {
+      this.setCurrentUser(user);
+    }
+    // Also claim invite if matched
+    const inv = this.invitations.find(
+      (i) => i.token.toUpperCase() === code.trim().toUpperCase() && i.status === 'pending'
+    );
+    if (inv) {
+      inv.status = 'accepted';
+      inv.acceptedAt = new Date().toISOString();
+      this.save(SAAS_INVITES_KEY, this.invitations);
+    }
+    return this.joinOrganisation(org.id, role);
   }
 
   updateMemberRole(orgId: string, memberId: string, newRole: UserRole): void {
@@ -965,13 +1049,6 @@ class MultiTenantService {
     description: string,
     visibility: 'private' | 'team' | 'organisation' = 'organisation'
   ): Workspace {
-    const stats = this.getUsageStats(orgId);
-    if (stats.isWorkspaceLimitReached) {
-      throw new Error(
-        `Workspace limit reached: Plan "${stats.plan.name}" allows up to ${stats.maxWorkspaces} workspaces. Please upgrade your plan.`
-      );
-    }
-
     const newWs: Workspace = {
       id: uid('ws'),
       organisationId: orgId,
@@ -1017,7 +1094,7 @@ class MultiTenantService {
     this.logPlatformAudit('plan.upgraded', orgId, { oldPlan, newPlan: newPlanId });
   }
 
-  // Usage calculation
+  // Usage calculation - Completely Unlimited
   getUsageStats(orgId: string = this.activeOrgId, boardsCount: number = 2): TenantUsageStats {
     const org = this.organisations.find(o => o.id === orgId) || this.organisations[0];
     const plan = this.plans.find(p => p.id === org.planId) || this.plans[0];
@@ -1030,17 +1107,23 @@ class MultiTenantService {
 
     return {
       totalMembers,
-      maxMembers: plan.maxMembers,
+      maxMembers: 999999,
       totalWorkspaces,
-      maxWorkspaces: plan.maxWorkspaces,
+      maxWorkspaces: 999999,
       totalBoards: boardsCount,
-      maxBoards: plan.maxBoards,
+      maxBoards: 999999,
       usedStorageBytes: org.usedStorageBytes,
-      maxStorageBytes: plan.storageAllowanceBytes,
-      plan,
-      isBoardLimitReached: boardsCount >= plan.maxBoards,
-      isMemberLimitReached: totalMembers >= plan.maxMembers,
-      isWorkspaceLimitReached: totalWorkspaces >= plan.maxWorkspaces,
+      maxStorageBytes: 1099511627776,
+      plan: {
+        ...plan,
+        name: 'Unlimited',
+        maxBoards: 999999,
+        maxMembers: 999999,
+        maxWorkspaces: 999999,
+      },
+      isBoardLimitReached: false,
+      isMemberLimitReached: false,
+      isWorkspaceLimitReached: false,
     };
   }
 

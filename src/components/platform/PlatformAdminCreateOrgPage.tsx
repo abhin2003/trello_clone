@@ -10,7 +10,7 @@ export const PlatformAdminCreateOrgPage: React.FC = () => {
 
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
-  const [planId, setPlanId] = useState<SubscriptionPlanId>('starter');
+  const planId: SubscriptionPlanId = 'enterprise';
   const [ownerEmail, setOwnerEmail] = useState('');
   const [ownerName, setOwnerName] = useState('');
   const [primaryColor, setPrimaryColor] = useState('#3b82f6');
@@ -187,40 +187,23 @@ export const PlatformAdminCreateOrgPage: React.FC = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div>
-                  <label className="input-label" htmlFor="plan-id">Subscription Plan Tier</label>
-                  <select
-                    id="plan-id"
+              <div>
+                <label className="input-label" htmlFor="brand-color">Brand Primary Color</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <input
+                    id="brand-color"
+                    type="color"
+                    value={primaryColor}
+                    onChange={(e) => setPrimaryColor(e.target.value)}
+                    style={{ width: '42px', height: '38px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: 'transparent' }}
+                  />
+                  <input
+                    type="text"
                     className="input-field"
-                    value={planId}
-                    onChange={(e) => setPlanId(e.target.value as SubscriptionPlanId)}
-                  >
-                    <option value="free_trial">Free / 14-Day Trial</option>
-                    <option value="starter">Starter ($29/mo)</option>
-                    <option value="professional">Professional ($79/mo)</option>
-                    <option value="enterprise">Enterprise ($249/mo)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="input-label" htmlFor="brand-color">Brand Primary Color</label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <input
-                      id="brand-color"
-                      type="color"
-                      value={primaryColor}
-                      onChange={(e) => setPrimaryColor(e.target.value)}
-                      style={{ width: '42px', height: '38px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: 'transparent' }}
-                    />
-                    <input
-                      type="text"
-                      className="input-field"
-                      value={primaryColor}
-                      onChange={(e) => setPrimaryColor(e.target.value)}
-                      style={{ flex: 1, fontFamily: 'monospace' }}
-                    />
-                  </div>
+                    value={primaryColor}
+                    onChange={(e) => setPrimaryColor(e.target.value)}
+                    style={{ flex: 1, fontFamily: 'monospace' }}
+                  />
                 </div>
               </div>
 

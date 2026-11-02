@@ -3,8 +3,13 @@ import { useBoard } from '../context/BoardContext';
 import { ListColumn } from './ListColumn';
 import { Plus, X } from 'lucide-react';
 
-export const BoardView: React.FC = () => {
-  const { activeBoard, addList } = useBoard();
+interface BoardViewProps {
+  boardId?: string;
+}
+
+export const BoardView: React.FC<BoardViewProps> = ({ boardId }) => {
+  const { activeBoard, boards, addList } = useBoard();
+  const currentBoard = (boardId ? boards.find((b) => b.id === boardId) : null) || activeBoard;
   const [isAddingList, setIsAddingList] = useState(false);
   const [newListTitle, setNewListTitle] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -21,13 +26,13 @@ export const BoardView: React.FC = () => {
     <main
       className="board-view-container"
       style={{
-        background: activeBoard.background.value,
+        background: currentBoard?.background?.value || '#1e293b',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }}
     >
       <div className="board-lists-scrollable">
-        {activeBoard.lists.map((list, index) => (
+        {(currentBoard?.lists || []).map((list, index) => (
           <ListColumn key={list.id} list={list} index={index} />
         ))}
 

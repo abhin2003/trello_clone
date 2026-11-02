@@ -57,7 +57,7 @@ export const OrgBoardDetailPage: React.FC<OrgBoardDetailPageProps> = ({ boardId 
   return (
     <OrgLayout activeNav="boards">
       <div className="board-detail-container" style={{ height: 'calc(100vh - 60px)', display: 'flex', flexDirection: 'column' }}>
-        <BoardView />
+        <BoardView boardId={boardId} />
       </div>
     </OrgLayout>
   );

@@ -15,8 +15,8 @@ import { useNavigate } from '../../router/Router';
 
 export const OrgWorkspacesPage: React.FC = () => {
   const navigate = useNavigate();
-  const { activeOrg, workspaces, createWorkspace, isAdmin } = useTenant();
-  const { boards, setIsNewBoardOpen } = useBoard();
+  const { activeOrg, workspaces, createWorkspace, setActiveWorkspaceId } = useTenant();
+  const { boards, setIsNewBoardOpen, setActiveBoardId } = useBoard();
 
   const [isCreating, setIsCreating] = useState(false);
   const [name, setName] = useState('');
@@ -31,11 +31,13 @@ export const OrgWorkspacesPage: React.FC = () => {
     if (!name.trim()) return;
 
     try {
-      createWorkspace(name.trim(), description.trim(), visibility);
+      const newWs = createWorkspace(name.trim(), description.trim(), visibility);
+      setActiveWorkspaceId(newWs.id);
       setName('');
       setDescription('');
       setIsCreating(false);
       setError(null);
+      navigate(`/org/${orgSlug}/boards?workspace=${newWs.id}`);
     } catch (err: any) {
       setError(err?.message || 'Failed to create workspace');
     }
@@ -52,7 +54,7 @@ export const OrgWorkspacesPage: React.FC = () => {
             </p>
           </div>
 
-          {isAdmin && (
+          <div>
             <button
               className="primary-cta-btn"
               onClick={() => setIsCreating((p) => !p)}
@@ -60,7 +62,7 @@ export const OrgWorkspacesPage: React.FC = () => {
               <Plus size={16} />
               <span>New Workspace</span>
             </button>
-          )}
+          </div>
         </div>
 
         {error && (
@@ -137,7 +139,16 @@ export const OrgWorkspacesPage: React.FC = () => {
             const wsBoards = boards.filter((b) => b.workspaceId === ws.id);
 
             return (
-              <div key={ws.id} className="workspace-card">
+              <div
+                key={ws.id}
+                className="workspace-card"
+                onClick={() => {
+                  setActiveWorkspaceId(ws.id);
+                  navigate(`/org/${orgSlug}/boards?workspace=${ws.id}`);
+                }}
+                style={{ cursor: 'pointer' }}
+                title={`Open ${ws.name} workspace boards`}
+              >
                 <div className="workspace-card-header">
                   <div className="ws-avatar-icon">
                     <Layers size={22} color="var(--accent-blue)" />
@@ -154,6 +165,48 @@ export const OrgWorkspacesPage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Mini Boards Preview inside workspace */}
+                <div style={{ padding: '0 16px 12px 16px', minHeight: '44px' }}>
+                  {wsBoards.length > 0 ? (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {wsBoards.slice(0, 3).map((b) => (
+                        <span
+                          key={b.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveWorkspaceId(ws.id);
+                            setActiveBoardId(b.id);
+                            navigate(`/org/${orgSlug}/boards/${b.id}`);
+                          }}
+                          style={{
+                            fontSize: '0.74rem',
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            background: 'var(--bg-subtle)',
+                            border: '1px solid var(--border-subtle)',
+                            color: 'var(--text-secondary)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <FolderKanban size={11} color="var(--accent-blue)" />
+                          {b.title}
+                        </span>
+                      ))}
+                      {wsBoards.length > 3 && (
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', alignSelf: 'center' }}>
+                          +{wsBoards.length - 3} more
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                      No boards in this workspace yet.
+                    </span>
+                  )}
+                </div>
+
                 <div className="workspace-card-footer">
                   <div className="ws-footer-stats">
                     <span className="ws-stat-item">
@@ -167,7 +220,12 @@ export const OrgWorkspacesPage: React.FC = () => {
                       type="button"
                       className="secondary-btn"
                       style={{ padding: '5px 10px', fontSize: '0.8rem' }}
-                      onClick={() => setIsNewBoardOpen(true)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveWorkspaceId(ws.id);
+                        setIsNewBoardOpen(true);
+                      }}
+                      title={`Create new board in ${ws.name}`}
                     >
                       <Plus size={13} />
                       <span>New Board</span>
@@ -176,7 +234,11 @@ export const OrgWorkspacesPage: React.FC = () => {
                       type="button"
                       className="primary-cta-btn"
                       style={{ padding: '5px 12px', fontSize: '0.8rem' }}
-                      onClick={() => navigate(`/org/${orgSlug}/boards`)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveWorkspaceId(ws.id);
+                        navigate(`/org/${orgSlug}/boards?workspace=${ws.id}`);
+                      }}
                     >
                       <span>Open</span>
                       <ArrowRight size={13} />

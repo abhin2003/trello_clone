@@ -1,6 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useBoard } from '../context/BoardContext';
 import { useTenant } from '../context/TenantContext';
+import { useRouter, useNavigate } from '../router/Router';
 import { OrgSwitcherDropdown } from './OrgSwitcherDropdown';
 import { UserMenuDropdown } from './UserMenuDropdown';
 import {
@@ -20,7 +21,7 @@ import {
   X,
   Settings,
   Shield,
-  Database,
+  Key,
 } from 'lucide-react';
 
 export const Header: React.FC = () => {
@@ -47,12 +48,41 @@ export const Header: React.FC = () => {
     isPlatformAdmin,
     setIsOrgAdminOpen,
     setIsPlatformAdminOpen,
-    isSupabaseActive,
-    setIsSupabaseModalOpen,
+    activeOrg,
+    orgJoinCode,
+    setIsJoinCodeModalOpen,
   } = useTenant();
 
+  const { currentPath } = useRouter();
+  const navigate = useNavigate();
+
+  const orgSlug = activeOrg?.slug || 'acme-corp';
+
+  // Check if an individual board is currently open in the route
+  const isBoardOpen = Boolean(
+    currentPath.includes('/boards/') &&
+    !currentPath.endsWith('/boards') &&
+    !currentPath.endsWith('/boards/')
+  );
+
   const [isBoardDropdownOpen, setIsBoardDropdownOpen] = useState(false);
+  const boardDropdownRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Close board dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (boardDropdownRef.current && !boardDropdownRef.current.contains(e.target as Node)) {
+        setIsBoardDropdownOpen(false);
+      }
+    };
+    if (isBoardDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isBoardDropdownOpen]);
 
   const activeFiltersCount =
     (filter.selectedLabelIds.length > 0 ? 1 : 0) +
@@ -99,133 +129,149 @@ export const Header: React.FC = () => {
         {/* Organisation Switcher */}
         <OrgSwitcherDropdown />
 
-        <div className="divider" />
+        {/* Board Switcher Dropdown & Star Button (Visible ONLY when a board is open) */}
+        {isBoardOpen && (
+          <>
+            <div className="divider" />
 
-        {/* Board Switcher Dropdown */}
-        <div className="board-selector-wrapper">
-          <button
-            className="board-selector-btn"
-            onClick={() => setIsBoardDropdownOpen((prev) => !prev)}
-            aria-expanded={isBoardDropdownOpen}
-          >
-            <span className="board-active-title">{activeBoard.title}</span>
-            <ChevronDown size={16} className={`chevron-icon ${isBoardDropdownOpen ? 'open' : ''}`} />
-          </button>
+            <div className="board-selector-wrapper" ref={boardDropdownRef}>
+              <button
+                className="board-selector-btn"
+                onClick={() => setIsBoardDropdownOpen((prev) => !prev)}
+                aria-expanded={isBoardDropdownOpen}
+                title={`Active Board: ${activeBoard.title}. Click to switch boards.`}
+              >
+                <span className="board-active-title">{activeBoard.title}</span>
+                <ChevronDown size={16} className={`chevron-icon ${isBoardDropdownOpen ? 'open' : ''}`} />
+              </button>
 
-          {isBoardDropdownOpen && (
-            <div className="dropdown-menu board-dropdown animate-fade-in">
-              <div className="dropdown-header">Switch Board</div>
-              <div className="dropdown-list">
-                {boards.map((b) => (
+              {isBoardDropdownOpen && (
+                <div className="dropdown-menu board-dropdown animate-fade-in">
+                  <div className="dropdown-header">Switch Board</div>
+                  <div className="dropdown-list">
+                    {boards.map((b) => (
+                      <button
+                        key={b.id}
+                        className={`dropdown-item ${b.id === activeBoard.id ? 'active' : ''}`}
+                        onClick={() => {
+                          setActiveBoardId(b.id);
+                          setIsBoardDropdownOpen(false);
+                          navigate(`/org/${orgSlug}/boards/${b.id}`);
+                        }}
+                      >
+                        <div
+                          className="board-mini-thumb"
+                          style={{ background: b.background.value }}
+                        />
+                        <span className="dropdown-item-label">{b.title}</span>
+                        {b.isStarred && <Star size={14} className="star-icon filled" />}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="dropdown-divider" />
                   <button
-                    key={b.id}
-                    className={`dropdown-item ${b.id === activeBoard.id ? 'active' : ''}`}
+                    className="dropdown-item create-action"
                     onClick={() => {
-                      setActiveBoardId(b.id);
                       setIsBoardDropdownOpen(false);
+                      setIsNewBoardOpen(true);
                     }}
                   >
-                    <div
-                      className="board-mini-thumb"
-                      style={{ background: b.background.value }}
-                    />
-                    <span className="dropdown-item-label">{b.title}</span>
-                    {b.isStarred && <Star size={14} className="star-icon filled" />}
+                    <Plus size={16} />
+                    <span>Create new board</span>
                   </button>
-                ))}
-              </div>
-              <div className="dropdown-divider" />
-              <button
-                className="dropdown-item create-action"
-                onClick={() => {
-                  setIsBoardDropdownOpen(false);
-                  setIsNewBoardOpen(true);
-                }}
-              >
-                <Plus size={16} />
-                <span>Create new board</span>
-              </button>
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        <button
-          className={`star-btn ${activeBoard.isStarred ? 'starred' : ''}`}
-          onClick={() => toggleStarBoard(activeBoard.id)}
-          title={activeBoard.isStarred ? 'Unstar Board' : 'Star Board'}
-          aria-label="Star board"
-        >
-          <Star size={18} />
-        </button>
-      </div>
-
-      <div className="header-center">
-        <div className="search-bar-container">
-          <Search size={16} className="search-icon" />
-          <input
-            type="text"
-            className="search-input"
-            placeholder="Search cards (Press 'F' to filter)..."
-            value={filter.searchQuery}
-            onChange={(e) => setFilter({ searchQuery: e.target.value })}
-          />
-          {filter.searchQuery && (
             <button
-              className="clear-search-btn"
-              onClick={() => setFilter({ searchQuery: '' })}
+              className={`star-btn ${activeBoard.isStarred ? 'starred' : ''}`}
+              onClick={() => toggleStarBoard(activeBoard.id)}
+              title={activeBoard.isStarred ? 'Unstar Board' : 'Star Board'}
+              aria-label="Star board"
             >
-              <X size={14} />
+              <Star size={18} />
             </button>
-          )}
-        </div>
+          </>
+        )}
       </div>
+
+      {/* Board Search (Visible ONLY when a board is open) */}
+      {isBoardOpen ? (
+        <div className="header-center">
+          <div className="search-bar-container">
+            <Search size={16} className="search-icon" />
+            <input
+              type="text"
+              className="search-input"
+              placeholder="Search cards (Press 'F' to filter)..."
+              value={filter.searchQuery}
+              onChange={(e) => setFilter({ searchQuery: e.target.value })}
+            />
+            {filter.searchQuery && (
+              <button
+                className="clear-search-btn"
+                onClick={() => setFilter({ searchQuery: '' })}
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="header-center" />
+      )}
 
       <div className="header-right">
-        <button
-          className={`action-pill-btn ${activeFiltersCount > 0 ? 'active' : ''}`}
-          onClick={() => setIsFilterOpen(true)}
-          title="Filter cards"
-        >
-          <Filter size={16} />
-          <span>Filter</span>
-          {activeFiltersCount > 0 && <span className="badge">{activeFiltersCount}</span>}
-        </button>
+        {/* Board Tools: Filter, Theme, Import/Export (Visible ONLY when a board is open) */}
+        {isBoardOpen && (
+          <>
+            <button
+              className={`action-pill-btn ${activeFiltersCount > 0 ? 'active' : ''}`}
+              onClick={() => setIsFilterOpen(true)}
+              title="Filter cards"
+            >
+              <Filter size={16} />
+              <span>Filter</span>
+              {activeFiltersCount > 0 && <span className="badge">{activeFiltersCount}</span>}
+            </button>
 
-        <button
-          className="action-pill-btn"
-          onClick={() => setIsBgPickerOpen(true)}
-          title="Change Board Background"
-        >
-          <Palette size={16} />
-          <span>Theme</span>
-        </button>
+            <button
+              className="action-pill-btn"
+              onClick={() => setIsBgPickerOpen(true)}
+              title="Change Board Background"
+            >
+              <Palette size={16} />
+              <span>Theme</span>
+            </button>
 
-        <div className="action-group">
-          <button
-            className="icon-button"
-            onClick={exportBoardJSON}
-            title="Export Board as JSON"
-            aria-label="Export board"
-          >
-            <Download size={18} />
-          </button>
+            <div className="action-group">
+              <button
+                className="icon-button"
+                onClick={exportBoardJSON}
+                title="Export Board as JSON"
+                aria-label="Export board"
+              >
+                <Download size={18} />
+              </button>
 
-          <button
-            className="icon-button"
-            onClick={() => fileInputRef.current?.click()}
-            title="Import Board from JSON"
-            aria-label="Import board"
-          >
-            <Upload size={18} />
-          </button>
-          <input
-            type="file"
-            ref={fileInputRef}
-            style={{ display: 'none' }}
-            accept=".json"
-            onChange={handleFileUpload}
-          />
-        </div>
+              <button
+                className="icon-button"
+                onClick={() => fileInputRef.current?.click()}
+                title="Import Board from JSON"
+                aria-label="Import board"
+              >
+                <Upload size={18} />
+              </button>
+              <input
+                type="file"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                accept=".json"
+                onChange={handleFileUpload}
+              />
+            </div>
+          </>
+        )}
 
         <button
           className="icon-button"
@@ -267,15 +313,20 @@ export const Header: React.FC = () => {
           </button>
         )}
 
-        {/* Supabase Integration Button */}
+        {/* Organisation Join Code Button */}
         <button
-          className={`supabase-header-badge-btn ${isSupabaseActive ? 'connected' : 'disconnected'}`}
-          onClick={() => setIsSupabaseModalOpen(true)}
-          title={isSupabaseActive ? 'Supabase Live Connected' : 'Connect Supabase Project'}
-          aria-label="Supabase Connection"
+          className="action-pill-btn"
+          onClick={() => setIsJoinCodeModalOpen(true)}
+          title={`Organisation Join Code: ${orgJoinCode || activeOrg?.joinCode || ''}. Click to view or invite workers.`}
+          style={{
+            background: 'rgba(59, 130, 246, 0.1)',
+            borderColor: 'rgba(59, 130, 246, 0.35)',
+            color: '#60a5fa',
+            fontWeight: 600,
+          }}
         >
-          <Database size={15} />
-          <span className="supabase-header-label">{isSupabaseActive ? 'Supabase Live' : 'Supabase'}</span>
+          <Key size={14} />
+          <span>Code: {orgJoinCode || activeOrg?.joinCode || 'ORG'}</span>
         </button>
 
         <button

@@ -55,7 +55,15 @@ export const ListColumn: React.FC<ListColumnProps> = ({ list }) => {
 
       // 3. Selected Members
       if (filter.selectedMemberIds.length > 0) {
-        const hasMember = filter.selectedMemberIds.some((mId) => card.members.includes(mId));
+        const hasMember = filter.selectedMemberIds.some((selectedId) => {
+          const targetMem = activeBoard.members.find(
+            (m) => m.id === selectedId || m.userId === selectedId || (m as any).memberId === selectedId
+          );
+          const matchIds = targetMem
+            ? [targetMem.id, targetMem.userId, (targetMem as any).memberId].filter((id): id is string => Boolean(id))
+            : [selectedId];
+          return card.members.some((cmId) => matchIds.includes(cmId));
+        });
         if (!hasMember) return false;
       }
 

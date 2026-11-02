@@ -25,6 +25,7 @@ export const SelectOrganisationPage: React.FC = () => {
     createOrganisation,
     claimInvitation,
     joinOrganisation,
+    joinWithCode,
     logout,
   } = useAuth();
 
@@ -67,17 +68,24 @@ export const SelectOrganisationPage: React.FC = () => {
     setActionLoading(true);
     setActionError(null);
     try {
-      const res = await claimInvitation(inviteToken.trim());
-      if (!res.success) {
-        setActionError(res.error || 'Invalid or expired invitation token');
+      const cleanInput = inviteToken.trim();
+      // Try joinWithCode first (handles org join codes like GGHJ-9771 and tokens)
+      const res = await joinWithCode(cleanInput);
+      if (res.success && res.organisation) {
+        setIsClaiming(false);
+        setInviteToken('');
+        navigate(`/org/${res.organisation.slug}/dashboard`);
+        return;
+      }
+
+      // Fallback to claimInvitation
+      const invRes = await claimInvitation(cleanInput);
+      if (!invRes.success) {
+        setActionError(res.error || invRes.error || 'Invalid or expired joining code or invitation token');
       } else {
         setIsClaiming(false);
         setInviteToken('');
-        const orgId = res.organisation?.id || res.organisationId;
-        const slug = res.organisation?.slug || 'acme-corp';
-        if (orgId) {
-          selectOrganisation(orgId);
-        }
+        const slug = invRes.organisation?.slug || 'acme-corp';
         navigate(`/org/${slug}/dashboard`);
       }
     } finally {
@@ -163,7 +171,7 @@ export const SelectOrganisationPage: React.FC = () => {
                 setActionError(null);
               }}
             >
-              Have an invitation code?
+              Have a join code or invite?
             </button>
             {memberships.length > 0 && (
               <button
@@ -195,19 +203,19 @@ export const SelectOrganisationPage: React.FC = () => {
           <form onSubmit={handleClaimInvite} className="callout-card" style={{ marginBottom: '1.25rem' }}>
             <h4 style={{ margin: '0 0 6px 0', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <KeyRound size={16} color="var(--accent-blue)" />
-              <span>Claim Company Invitation</span>
+              <span>Join Organisation with Code or Token</span>
             </h4>
             <p style={{ margin: '0 0 10px 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-              Paste the cryptographic invitation token you received via email:
+              Enter the worker joining code (e.g. <code>GGHJ-9771</code>) or invitation token:
             </p>
             <div style={{ display: 'flex', gap: '8px' }}>
               <input
                 type="text"
                 className="form-input"
-                placeholder="tok-acme-XXXX-XXXX"
+                placeholder="e.g. GGHJ-9771"
                 value={inviteToken}
-                onChange={(e) => setInviteToken(e.target.value)}
-                style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}
+                onChange={(e) => setInviteToken(e.target.value.toUpperCase())}
+                style={{ fontFamily: 'monospace', fontSize: '0.85rem', textTransform: 'uppercase' }}
                 required
               />
               <button
@@ -215,7 +223,7 @@ export const SelectOrganisationPage: React.FC = () => {
                 className="primary-cta-btn"
                 disabled={actionLoading || !inviteToken.trim()}
               >
-                {actionLoading ? <RefreshCw size={15} className="spin-animation" /> : 'Claim'}
+                {actionLoading ? <RefreshCw size={15} className="spin-animation" /> : 'Join'}
               </button>
             </div>
           </form>

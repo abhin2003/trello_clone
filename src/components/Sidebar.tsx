@@ -1,6 +1,7 @@
 import React from 'react';
 import { useBoard } from '../context/BoardContext';
 import { useTenant } from '../context/TenantContext';
+import { useNavigate } from '../router/Router';
 import {
   X,
   Star,
@@ -14,6 +15,7 @@ import {
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
+  const navigate = useNavigate();
   const {
     boards,
     activeBoardId,
@@ -34,6 +36,8 @@ export const Sidebar: React.FC = () => {
     setIsOrgAdminOpen,
   } = useTenant();
 
+  const orgSlug = activeOrg?.slug || 'acme-corp';
+
   if (!isSidebarOpen) return null;
 
   const starredBoards = boards.filter((b) => b.isStarred);
@@ -52,7 +56,7 @@ export const Sidebar: React.FC = () => {
             <div>
               <h2 className="sidebar-title">{activeOrg.name}</h2>
               <p className="sidebar-subtitle">
-                {activeOrg.planId.toUpperCase()} • {workspaces.length} Workspaces
+                {workspaces.length} Workspaces • {members.length} Members
               </p>
             </div>
           </div>
@@ -81,6 +85,7 @@ export const Sidebar: React.FC = () => {
                     onClick={() => {
                       setActiveBoardId(board.id);
                       setIsSidebarOpen(false);
+                      navigate(`/org/${orgSlug}/boards/${board.id}`);
                     }}
                   >
                     <div
@@ -121,6 +126,7 @@ export const Sidebar: React.FC = () => {
                   onClick={() => {
                     setActiveBoardId(board.id);
                     setIsSidebarOpen(false);
+                    navigate(`/org/${orgSlug}/boards/${board.id}`);
                   }}
                 >
                   <div

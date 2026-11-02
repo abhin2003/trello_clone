@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useBoard } from '../context/BoardContext';
 import { useTenant } from '../context/TenantContext';
+import { useNavigate } from '../router/Router';
 import { BACKGROUND_PRESETS } from '../data/initialData';
 import { X, Plus, Check, Layers } from 'lucide-react';
 
 export const NewBoardModal: React.FC = () => {
+  const navigate = useNavigate();
   const { isNewBoardOpen, setIsNewBoardOpen, createBoard } = useBoard();
-  const { workspaces, activeWorkspaceId, activeOrg } = useTenant();
+  const { workspaces, activeWorkspaceId, setActiveWorkspaceId, activeOrg } = useTenant();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -15,16 +17,31 @@ export const NewBoardModal: React.FC = () => {
     activeWorkspaceId || workspaces[0]?.id || ''
   );
 
+  useEffect(() => {
+    if (isNewBoardOpen) {
+      if (activeWorkspaceId && workspaces.some((w) => w.id === activeWorkspaceId)) {
+        setSelectedWsId(activeWorkspaceId);
+      } else if (workspaces[0]?.id) {
+        setSelectedWsId(workspaces[0].id);
+      }
+    }
+  }, [isNewBoardOpen, activeWorkspaceId, workspaces]);
+
   if (!isNewBoardOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
     try {
-      createBoard(title, selectedBg, description, selectedWsId);
+      const newBoardId = createBoard(title, selectedBg, description, selectedWsId);
+      if (selectedWsId) {
+        setActiveWorkspaceId(selectedWsId);
+      }
       setTitle('');
       setDescription('');
       setIsNewBoardOpen(false);
+      const orgSlug = activeOrg?.slug || 'acme-corp';
+      navigate(`/org/${orgSlug}/boards/${newBoardId}`);
     } catch {
       // Quota warning handled by context
     }

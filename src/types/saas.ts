@@ -40,6 +40,7 @@ export interface Organisation {
   id: string;
   name: string;
   slug: string;
+  joinCode?: string;
   logoUrl?: string;
   primaryColor: string;
   status: OrgStatus;

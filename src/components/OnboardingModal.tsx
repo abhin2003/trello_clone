@@ -20,7 +20,7 @@ export const OnboardingModal: React.FC = () => {
   // Self-Serve Create state
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
-  const [planId, setPlanId] = useState<SubscriptionPlanId>('starter');
+  const planId: SubscriptionPlanId = 'enterprise';
   const [workspaceName, setWorkspaceName] = useState('Product Engineering');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -169,29 +169,14 @@ export const OnboardingModal: React.FC = () => {
                 </div>
               </div>
 
-              <div className="form-grid-2">
-                <div className="form-field">
-                  <label className="form-label">Subscription Tier (14-Day Free Trial)</label>
-                  <select
-                    className="form-input"
-                    value={planId}
-                    onChange={(e) => setPlanId(e.target.value as SubscriptionPlanId)}
-                  >
-                    <option value="starter">Starter Plan (15 members, 20 boards)</option>
-                    <option value="professional">Professional Plan (100 members, unlimited boards)</option>
-                    <option value="enterprise">Enterprise Plan (Dedicated cloud)</option>
-                  </select>
-                </div>
-
-                <div className="form-field">
-                  <label className="form-label">Initial Workspace Title</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={workspaceName}
-                    onChange={(e) => setWorkspaceName(e.target.value)}
-                  />
-                </div>
+              <div className="form-field">
+                <label className="form-label">Initial Workspace Title</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={workspaceName}
+                  onChange={(e) => setWorkspaceName(e.target.value)}
+                />
               </div>
 
               <div className="onboarding-footer-cta">

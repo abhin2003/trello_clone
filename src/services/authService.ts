@@ -537,6 +537,27 @@ export class AuthService {
   }
 
   /**
+   * Claim an organisation joining code (e.g. ACME-2026)
+   */
+  async claimJoinCode(code: string): Promise<{ success: boolean; organisationId?: string; organisation?: Organisation; error?: string }> {
+    const cleanCode = (code || '').trim().toUpperCase();
+    if (!cleanCode) {
+      return { success: false, error: 'Please enter a valid organisation joining code.' };
+    }
+
+    try {
+      const org = tenantService.findOrgByJoinCode(cleanCode);
+      if (!org) {
+        return { success: false, error: `Invalid organisation joining code "${cleanCode}". Please verify with your owner.` };
+      }
+      const res = tenantService.joinWithCode(cleanCode);
+      return { success: true, organisationId: res.organisation.id, organisation: res.organisation };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Failed to join organisation with code.' };
+    }
+  }
+
+  /**
    * Directly join an organisation (e.g. Acme Corp Demo)
    */
   async joinOrganisation(

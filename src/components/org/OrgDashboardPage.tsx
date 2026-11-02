@@ -3,7 +3,7 @@ import {
   Kanban,
   Layers,
   Users,
-  Clock,
+  Key,
   Plus,
   ArrowRight,
   CheckCircle2,
@@ -21,7 +21,7 @@ import { Link, useNavigate } from '../../router/Router';
 export const OrgDashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { boards, setActiveBoardId, setIsNewBoardOpen } = useBoard();
-  const { activeOrg, members, workspaces, auditLogs, setIsOrgAdminOpen } = useTenant();
+  const { activeOrg, members, workspaces, auditLogs, setIsOrgAdminOpen, setIsCreateWorkspaceOpen, setIsJoinCodeModalOpen } = useTenant();
   const { userProfile } = useAuth();
 
   const orgSlug = activeOrg.slug || 'acme-corp';
@@ -69,6 +69,13 @@ export const OrgDashboardPage: React.FC = () => {
             </button>
             <button
               className="secondary-btn"
+              onClick={() => setIsCreateWorkspaceOpen(true)}
+            >
+              <Layers size={16} />
+              <span>New Workspace</span>
+            </button>
+            <button
+              className="secondary-btn"
               onClick={() => setIsOrgAdminOpen(true)}
             >
               <Users size={16} />
@@ -99,7 +106,12 @@ export const OrgDashboardPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="dash-metric-card" onClick={() => navigate(`/org/${orgSlug}/members`)}>
+          <div
+            className="dash-metric-card"
+            onClick={() => setIsJoinCodeModalOpen(true)}
+            style={{ cursor: 'pointer' }}
+            title="Click to view worker joining code & invitation link"
+          >
             <div className="dash-metric-icon" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981' }}>
               <Users size={20} />
             </div>
@@ -109,13 +121,20 @@ export const OrgDashboardPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="dash-metric-card" onClick={() => navigate(`/org/${orgSlug}/settings`)}>
-            <div className="dash-metric-icon" style={{ background: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b' }}>
-              <Clock size={20} />
+          <div
+            className="dash-metric-card"
+            onClick={() => setIsJoinCodeModalOpen(true)}
+            style={{ cursor: 'pointer' }}
+            title="Click to view worker joining code & invitation link"
+          >
+            <div className="dash-metric-icon" style={{ background: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6' }}>
+              <Key size={20} />
             </div>
             <div>
-              <div className="dash-metric-number" style={{ textTransform: 'capitalize' }}>{activeOrg.planId.replace('_', ' ')}</div>
-              <div className="dash-metric-label">Subscription Tier</div>
+              <div className="dash-metric-number" style={{ fontFamily: 'monospace', letterSpacing: '0.04em' }}>
+                {activeOrg.joinCode || 'ACTIVE'}
+              </div>
+              <div className="dash-metric-label">Worker Join Code</div>
             </div>
           </div>
         </div>
@@ -220,12 +239,8 @@ export const OrgDashboardPage: React.FC = () => {
               <div className="dash-section-header">
                 <div className="dash-header-title">
                   <Activity size={18} color="var(--accent-purple)" />
-                  <h3>Recent Organisation Activity</h3>
+                  <h3>Recent Team Activity</h3>
                 </div>
-                <Link to={`/org/${orgSlug}/activity`} className="dash-header-link">
-                  <span>Audit stream</span>
-                  <ArrowRight size={14} />
-                </Link>
               </div>
 
               <div className="dash-activity-timeline">
