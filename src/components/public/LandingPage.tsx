@@ -63,7 +63,7 @@ export const LandingPage: React.FC = () => {
                 <Link to="/login" className="secondary-btn" style={{ padding: '8px 16px' }}>
                   Sign In
                 </Link>
-                <Link to="/register" className="primary-cta-btn" style={{ padding: '8px 18px' }}>
+                <Link to="/login" className="primary-cta-btn" style={{ padding: '8px 18px' }}>
                   <span>Get Started</span>
                   <ArrowRight size={15} />
                 </Link>
@@ -91,7 +91,7 @@ export const LandingPage: React.FC = () => {
           </p>
 
           <div className="hero-cta-group">
-            <Link to="/register" className="primary-cta-btn hero-primary-btn">
+            <Link to="/login" className="primary-cta-btn hero-primary-btn">
               <span>Get Started Free</span>
               <ArrowRight size={18} />
             </Link>
@@ -271,7 +271,7 @@ export const LandingPage: React.FC = () => {
             Set up your multi-tenant workspace with isolated databases, full role-based access, and modern visual Kanban boards.
           </p>
           <div style={{ display: 'flex', gap: '14px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link to="/register" className="primary-cta-btn" style={{ padding: '12px 28px', fontSize: '0.95rem' }}>
+            <Link to="/login" className="primary-cta-btn" style={{ padding: '12px 28px', fontSize: '0.95rem' }}>
               <span>Create Your Organisation</span>
               <ArrowRight size={16} />
             </Link>
@@ -298,8 +298,7 @@ export const LandingPage: React.FC = () => {
           <div className="footer-links-grid">
             <div className="footer-col">
               <h4>Platform</h4>
-              <Link to="/login">Sign In</Link>
-              <Link to="/register">Create Account</Link>
+              <Link to="/login">Sign In / Register</Link>
               <Link to="/forgot-password">Reset Password</Link>
             </div>
             <div className="footer-col">

@@ -94,7 +94,7 @@ export const InviteClaimPage: React.FC<InviteClaimPageProps> = ({ token }) => {
                 <span>Sign In to Accept</span>
               </Link>
 
-              <Link to="/register" className="secondary-btn" style={{ width: '100%', justifyContent: 'center' }}>
+              <Link to="/login" className="secondary-btn" style={{ width: '100%', justifyContent: 'center' }}>
                 <span>Create an Account</span>
               </Link>
             </div>

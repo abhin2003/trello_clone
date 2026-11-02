@@ -11,7 +11,6 @@ import { InviteClaimPage } from './components/public/InviteClaimPage';
 
 // Authentication Pages
 import { LoginPage } from './components/auth/LoginPage';
-import { RegisterPage } from './components/auth/RegisterPage';
 import { ForgotPasswordPage } from './components/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from './components/auth/ResetPasswordPage';
 import { VerifyEmailPage } from './components/auth/VerifyEmailPage';
@@ -136,11 +135,8 @@ export const AppRouter: React.FC = () => {
   }
 
   // 2. AUTHENTICATION PAGES
-  if (currentPath === '/login') {
+  if (currentPath === '/login' || currentPath === '/register') {
     return <LoginPage />;
-  }
-  if (currentPath === '/register') {
-    return <RegisterPage />;
   }
   if (currentPath === '/forgot-password') {
     return <ForgotPasswordPage />;
