@@ -24,7 +24,6 @@ export const SelectOrganisationPage: React.FC = () => {
     selectOrganisation,
     createOrganisation,
     claimInvitation,
-    joinOrganisation,
     joinWithCode,
     logout,
   } = useAuth();
@@ -93,21 +92,6 @@ export const SelectOrganisationPage: React.FC = () => {
     }
   };
 
-  const handleQuickJoinDemo = async () => {
-    setActionLoading(true);
-    setActionError(null);
-    try {
-      const res = await joinOrganisation('org-acme', 'owner');
-      if (res.success && res.organisation) {
-        selectOrganisation(res.organisation.id);
-        navigate(`/org/${res.organisation.slug}/dashboard`);
-      } else {
-        setActionError(res.error || 'Failed to join demo organisation');
-      }
-    } finally {
-      setActionLoading(false);
-    }
-  };
 
   const renderRoleBadge = (role: UserRole) => {
     switch (role) {
@@ -320,17 +304,6 @@ export const SelectOrganisationPage: React.FC = () => {
                 )}
               </button>
             </form>
-
-            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-light)', maxWidth: '420px', margin: '20px auto 0 auto' }}>
-              <button
-                type="button"
-                className="secondary-btn"
-                style={{ width: '100%', justifyContent: 'center', fontSize: '0.84rem' }}
-                onClick={handleQuickJoinDemo}
-              >
-                🚀 Quick Start: Join Demo Organisation (Acme Corp)
-              </button>
-            </div>
           </div>
         ) : (
           /* Organisations List Grid */

@@ -20,7 +20,6 @@ export const NoOrganisationPage: React.FC = () => {
     user,
     createOrganisation,
     claimInvitation,
-    joinOrganisation,
     joinWithCode,
     selectOrganisation,
     logout,
@@ -84,21 +83,6 @@ export const NoOrganisationPage: React.FC = () => {
     }
   };
 
-  const handleQuickJoinDemo = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await joinOrganisation('org-acme', 'owner');
-      if (res.success && res.organisation) {
-        selectOrganisation(res.organisation.id);
-        navigate(`/org/${res.organisation.slug}/dashboard`);
-      } else {
-        setError(res.error || 'Failed to join demo organisation');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <AuthLayout
@@ -262,18 +246,6 @@ export const NoOrganisationPage: React.FC = () => {
             </button>
           </form>
         )}
-
-        <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border-light)', textAlign: 'center' }}>
-          <button
-            type="button"
-            className="secondary-btn"
-            style={{ width: '100%', justifyContent: 'center', fontSize: '0.84rem' }}
-            onClick={handleQuickJoinDemo}
-            disabled={loading}
-          >
-            🚀 Quick Start: Join Demo Organisation (Acme Corp)
-          </button>
-        </div>
       </div>
     </AuthLayout>
   );
