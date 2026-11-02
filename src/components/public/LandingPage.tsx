@@ -185,7 +185,7 @@ export const LandingPage: React.FC = () => {
 
       {/* Feature Highlights Section */}
       <section id="features" className="landing-features-section">
-        <div className="section-header">
+        <div className="landing-section-header section-header">
           <span className="section-badge">Core Capabilities</span>
           <h2 className="section-title">Engineered for Commercial Multi-Tenancy</h2>
           <p className="section-subtitle">
@@ -258,12 +258,13 @@ export const LandingPage: React.FC = () => {
 
       {/* Ready to Get Started CTA Section */}
       <section className="landing-features-section" style={{ paddingTop: '20px', paddingBottom: '60px' }}>
-        <div className="section-header" style={{
+        <div className="landing-section-header section-header" style={{
           background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(59, 130, 246, 0.05))',
           border: '1px solid rgba(59, 130, 246, 0.25)',
           borderRadius: '16px',
           padding: '48px 32px',
-          maxWidth: '960px'
+          maxWidth: '960px',
+          margin: '0 auto',
         }}>
           <span className="section-badge">Get Started Today</span>
           <h2 className="section-title" style={{ fontSize: '2rem' }}>Ready to organize your team?</h2>

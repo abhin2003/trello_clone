@@ -5773,13 +5773,19 @@ body {
   z-index: 1;
 }
 
-.section-header {
+.landing-section-header,
+.landing-features-section .section-header {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
   text-align: center;
-  max-width: 680px;
+  max-width: 820px;
   margin: 0 auto 56px;
+  gap: 0;
 }
 
-.section-badge {
+.landing-section-header .section-badge,
+.landing-features-section .section-badge {
   display: inline-block;
   font-size: 0.76rem;
   font-weight: 700;
@@ -5789,20 +5795,26 @@ body {
   margin-bottom: 12px;
 }
 
-.section-title {
+.landing-section-header .section-title,
+.landing-features-section .section-title {
   font-family: var(--font-display);
   font-size: 2.3rem;
   font-weight: 800;
   color: var(--text-primary);
   letter-spacing: -0.02em;
   margin: 0 0 14px;
+  line-height: 1.25;
+  text-align: center;
 }
 
-.section-subtitle {
-  font-size: 0.98rem;
+.landing-section-header .section-subtitle,
+.landing-features-section .section-subtitle {
+  font-size: 1rem;
   line-height: 1.6;
   color: var(--text-secondary);
   margin: 0;
+  text-align: center;
+  max-width: 680px;
 }
 
 .features-grid {
