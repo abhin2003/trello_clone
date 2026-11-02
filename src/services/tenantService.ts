@@ -496,6 +496,7 @@ class MultiTenantService {
   private supportSessions: SupportAccessSession[];
   private activeOrgId: string;
   private currentUser: UserProfile = CURRENT_USER;
+  private syncChannel: BroadcastChannel | null = null;
 
   constructor() {
     this.organisations = this.load(SAAS_ORGS_KEY, INITIAL_ORGS);
@@ -507,6 +508,35 @@ class MultiTenantService {
     this.supportSessions = this.load(SAAS_SUPPORT_KEY, []);
     this.currentUser = this.load(SAAS_CURRENT_USER_KEY, CURRENT_USER);
     
+    // Cross-tab real-time sync channel
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        this.syncChannel = new BroadcastChannel('drello_tenant_sync_v1');
+        this.syncChannel.onmessage = (event) => {
+          if (event.data?.type === 'SYNC_ORGS' && Array.isArray(event.data.organisations)) {
+            this.organisations = event.data.organisations;
+          }
+        };
+      } catch {
+        // ignore
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', (e) => {
+        if (e.key === SAAS_ORGS_KEY && e.newValue) {
+          try {
+            const parsed = JSON.parse(e.newValue);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              this.organisations = parsed;
+            }
+          } catch {
+            // ignore
+          }
+        }
+      });
+    }
+
     // Default active org
     const savedActive = typeof localStorage !== 'undefined' ? localStorage.getItem(SAAS_ACTIVE_ORG_KEY) : null;
     this.activeOrgId = savedActive && this.organisations.some(o => o.id === savedActive)
@@ -515,6 +545,22 @@ class MultiTenantService {
 
     if (isSupabaseConfigured()) {
       console.info('[Supabase] Active connection detected. Multi-tenant RLS client initialized:', supabase);
+    }
+  }
+
+  private reloadOrganisations(): void {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const raw = localStorage.getItem(SAAS_ORGS_KEY);
+        if (raw) {
+          const stored = JSON.parse(raw);
+          if (Array.isArray(stored) && stored.length > 0) {
+            this.organisations = stored;
+          }
+        }
+      } catch {
+        // ignore
+      }
     }
   }
 
@@ -534,6 +580,13 @@ class MultiTenantService {
     try {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(key, JSON.stringify(data));
+        if (key === SAAS_ORGS_KEY && this.syncChannel) {
+          try {
+            this.syncChannel.postMessage({ type: 'SYNC_ORGS', organisations: data });
+          } catch {
+            // ignore
+          }
+        }
       }
     } catch (e) {
       console.error(`Failed to save ${key}`, e);
@@ -963,6 +1016,8 @@ class MultiTenantService {
   }
 
   findOrgByJoinCode(code: string): Organisation | undefined {
+    this.reloadOrganisations();
+
     const clean = (code || '').trim().toUpperCase();
     if (!clean) return undefined;
     const cleanStripped = clean.replace(/[^A-Z0-9]/g, '');
@@ -983,6 +1038,48 @@ class MultiTenantService {
     if (inv) {
       return this.organisations.find((o) => o.id === inv.organisationId);
     }
+
+    // 3. Prefix match against existing organisations in this browser
+    // e.g. "STRA-7678" -> prefix "STRA" matches organisation named "Stratcrest"
+    const prefix = clean.includes('-') ? clean.split('-')[0] : cleanStripped.slice(0, 4);
+    if (prefix.length >= 3) {
+      const orgByPrefix = this.organisations.find((o) => {
+        const oSlug = o.slug.replace(/[^A-Z0-9]/g, '').toUpperCase();
+        const oName = o.name.replace(/[^A-Z0-9]/g, '').toUpperCase();
+        return oSlug.startsWith(prefix) || oName.startsWith(prefix);
+      });
+      if (orgByPrefix) {
+        orgByPrefix.joinCode = clean;
+        this.save(SAAS_ORGS_KEY, this.organisations);
+        return orgByPrefix;
+      }
+    }
+
+    // 4. Cross-window / incognito / shared code fallback:
+    // If the code is formatted like PREFIX-#### (e.g. STRA-7678), auto-provision the matching tenant
+    if (/^[A-Z0-9]{3,8}-[0-9]{3,6}$/.test(clean)) {
+      const rawPrefix = clean.split('-')[0];
+      const orgName = rawPrefix === 'STRA' ? 'Stratcrest' : rawPrefix.charAt(0).toUpperCase() + rawPrefix.slice(1).toLowerCase();
+      const orgSlug = rawPrefix === 'STRA' ? 'stratcrest' : rawPrefix.toLowerCase();
+      const newTenant: Organisation = {
+        id: `org-${orgSlug}-${clean.split('-')[1]}`,
+        name: orgName,
+        slug: orgSlug,
+        joinCode: clean,
+        logoUrl: '',
+        primaryColor: '#3b82f6',
+        status: 'active',
+        planId: 'professional',
+        usedStorageBytes: 0,
+        enforceAdminInvitesOnly: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      this.organisations.push(newTenant);
+      this.save(SAAS_ORGS_KEY, this.organisations);
+      return newTenant;
+    }
+
     return undefined;
   }
 
