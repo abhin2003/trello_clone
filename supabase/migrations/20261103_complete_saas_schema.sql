@@ -347,3 +347,4 @@ DO $$ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.organisation_members;
 EXCEPTION WHEN others THEN null;
 END $$;
+
