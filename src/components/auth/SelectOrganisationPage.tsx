@@ -146,7 +146,7 @@ export const SelectOrganisationPage: React.FC = () => {
       title={memberships.length === 0 ? "Create Your Workspace" : "Select Your Organisation"}
       subtitle={
         memberships.length === 0
-          ? `Welcome, ${userProfile?.name || 'User'}. Set up your organisation workspace to start using Stratcrest Flow.`
+          ? `Welcome, ${userProfile?.name || 'User'}. Set up your organisation workspace to start using Drello.`
           : `Welcome back, ${userProfile?.name || 'User'}. Choose which organisation workspace to open.`
       }
       footerContent={
@@ -293,7 +293,7 @@ export const SelectOrganisationPage: React.FC = () => {
                 <input
                   type="text"
                   className="form-input"
-                  placeholder="e.g. Stratcrest Innovations or Abhin Tech"
+                  placeholder="e.g. Drello Innovations or Acme Tech"
                   value={newOrgName}
                   onChange={(e) => setNewOrgName(e.target.value)}
                   autoFocus

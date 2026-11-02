@@ -103,7 +103,7 @@ export const INITIAL_PLANS: SubscriptionPlan[] = [
 // Current logged in user (Abhinav Patel)
 export const CURRENT_USER: UserProfile = {
   id: 'user-abhinav-current',
-  email: 'abhinav@stratcrest.com',
+  email: 'abhinav@drello.com',
   name: 'Abhinav Patel',
   initials: 'AP',
   avatarColor: '#3b82f6',
@@ -144,8 +144,8 @@ const INITIAL_ORGS: Organisation[] = [
   },
   {
     id: 'org-stratcrest',
-    name: 'Stratcrest Global Labs',
-    slug: 'stratcrest-labs',
+    name: 'Drello Global Labs',
+    slug: 'drello-labs',
     joinCode: 'STRAT-2026',
     logoUrl: '',
     primaryColor: '#8b5cf6',
@@ -440,7 +440,7 @@ const INITIAL_AUDIT_LOGS: AuditLog[] = [
     action: 'board.created',
     targetType: 'board',
     targetId: 'board-stratcrest-q4',
-    metadata: { title: 'Stratcrest Q4 Roadmap', workspace: 'Engineering & Product' },
+    metadata: { title: 'Drello Q4 Roadmap', workspace: 'Engineering & Product' },
     ipAddress: '192.168.1.10',
     createdAt: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(),
   },

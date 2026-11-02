@@ -128,7 +128,7 @@ export const PlatformAdminPortal: React.FC = () => {
             </div>
             <div>
               <div className="portal-title-row">
-                <h2 className="portal-title">Stratcrest SaaS Platform Administration</h2>
+                <h2 className="portal-title">Drello Platform Administration</h2>
                 <span className="super-admin-badge">SUPER-ADMIN CONSOLE</span>
               </div>
               <p className="portal-subtitle">

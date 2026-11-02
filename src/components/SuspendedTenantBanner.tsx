@@ -48,7 +48,7 @@ export const SuspendedTenantBanner: React.FC = () => {
           )}
 
           <a
-            href="mailto:support@stratcrest.com"
+            href="mailto:support@drello.com"
             className="secondary-action-btn"
             target="_blank"
             rel="noopener noreferrer"

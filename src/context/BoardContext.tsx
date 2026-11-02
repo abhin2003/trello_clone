@@ -411,7 +411,7 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(activeBoard, null, 2));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute('href', dataStr);
-    downloadAnchor.setAttribute('download', `${activeBoard.title.replace(/\s+/g, '_')}_stratcrest_export.json`);
+    downloadAnchor.setAttribute('download', `${activeBoard.title.replace(/\s+/g, '_')}_drello_export.json`);
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
@@ -705,7 +705,7 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const newComment = {
       id: `comm-${Date.now()}`,
       authorId: 'mem-1',
-      authorName: 'Abhinav Stratcrest',
+      authorName: 'Abhinav Patel',
       authorAvatar: '#3b82f6',
       text: text.trim(),
       createdAt: new Date().toISOString(),

@@ -121,7 +121,7 @@ export const Header: React.FC = () => {
           <div className="brand-logo-icon">
             <Kanban size={18} />
           </div>
-          <span className="brand-title">Stratcrest Flow</span>
+          <span className="brand-title">Drello</span>
         </div>
 
         <div className="divider" />

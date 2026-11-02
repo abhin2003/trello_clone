@@ -28,7 +28,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
           <div className="brand-logo-icon">
             <Kanban size={20} />
           </div>
-          <span className="brand-title">Stratcrest Flow</span>
+          <span className="brand-title">Drello</span>
           <span className="badge-pill badge-active" style={{ fontSize: '0.7rem', padding: '2px 8px' }}>
             SaaS Platform
           </span>

@@ -141,7 +141,7 @@ export const NoOrganisationPage: React.FC = () => {
           <div style={{ display: 'flex', gap: '10px' }}>
             <Clock size={18} style={{ color: 'var(--accent-blue)', flexShrink: 0, marginTop: '2px' }} />
             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              To access Stratcrest Flow, you must either create an organisation workspace or be invited by an existing organisation administrator.
+              To access Drello, you must either create an organisation workspace or be invited by an existing organisation administrator.
             </div>
           </div>
         </div>
@@ -187,7 +187,7 @@ export const NoOrganisationPage: React.FC = () => {
                   id="new-org-name"
                   type="text"
                   className="form-input"
-                  placeholder="e.g. Acme Corporation or Stratcrest Labs"
+                  placeholder="e.g. Acme Corporation or Drello Labs"
                   value={orgName}
                   onChange={(e) => setOrgName(e.target.value)}
                   required

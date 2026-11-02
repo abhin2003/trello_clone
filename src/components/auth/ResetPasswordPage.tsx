@@ -49,7 +49,7 @@ export const ResetPasswordPage: React.FC = () => {
   return (
     <AuthLayout
       title="Set a New Password"
-      subtitle="Enter a new secure password for your Stratcrest Flow account"
+      subtitle="Enter a new secure password for your Drello account"
     >
       {isSuccess ? (
         <div className="verification-success-box">

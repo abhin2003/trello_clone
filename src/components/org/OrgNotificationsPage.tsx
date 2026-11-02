@@ -9,7 +9,7 @@ export const OrgNotificationsPage: React.FC = () => {
   const mockNotifications = [
     {
       id: 'notif-1',
-      title: 'Welcome to Stratcrest Flow',
+      title: 'Welcome to Drello',
       message: `Your organisation workspace "${activeOrg.name}" is fully provisioned with Row-Level Security.`,
       time: 'Just now',
       type: 'info',

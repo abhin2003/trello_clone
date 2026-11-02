@@ -75,7 +75,7 @@ export class AuthService {
         : cleanEmail.split('@')[0].charAt(0).toUpperCase() + cleanEmail.split('@')[0].slice(1);
 
       const userId = `user-${cleanEmail.replace(/[^a-z0-9]/g, '-')}`;
-      const isPlatformAdmin = cleanEmail === 'admin@stratcrest.io' || cleanEmail.includes('platform-admin');
+      const isPlatformAdmin = cleanEmail === 'admin@drello.io' || cleanEmail.includes('platform-admin');
 
       const mockUser: User = {
         id: userId,

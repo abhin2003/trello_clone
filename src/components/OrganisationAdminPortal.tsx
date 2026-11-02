@@ -209,7 +209,7 @@ export const OrganisationAdminPortal: React.FC = () => {
                 <div className="form-field">
                   <label className="form-label">Workspace URL Slug</label>
                   <div className="slug-input-wrapper">
-                    <span className="slug-prefix">stratcrest.io/</span>
+                    <span className="slug-prefix">drello.io/</span>
                     <input
                       type="text"
                       className="form-input slug-field"

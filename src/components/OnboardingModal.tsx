@@ -102,7 +102,7 @@ export const OnboardingModal: React.FC = () => {
           <div className="brand-badge-center">
             <Sparkles size={20} className="text-blue" />
           </div>
-          <h2 className="onboarding-title">Welcome to Stratcrest SaaS</h2>
+          <h2 className="onboarding-title">Welcome to Drello</h2>
           <p className="onboarding-desc">
             Scale cross-team project execution across independent multi-tenant environments.
           </p>
@@ -157,7 +157,7 @@ export const OnboardingModal: React.FC = () => {
               <div className="form-field">
                 <label className="form-label">Workspace URL Slug</label>
                 <div className="slug-input-wrapper">
-                  <span className="slug-prefix">stratcrest.io/</span>
+                  <span className="slug-prefix">drello.io/</span>
                   <input
                     type="text"
                     className="form-input slug-field"

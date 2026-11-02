@@ -39,7 +39,7 @@ export const InviteClaimPage: React.FC<InviteClaimPageProps> = ({ token }) => {
   return (
     <AuthLayout
       title="Company Workspace Invitation"
-      subtitle="You have been invited to collaborate on Stratcrest Flow"
+      subtitle="You have been invited to collaborate on Drello"
     >
       <div className="invite-claim-card" style={{ textAlign: 'center', padding: '1rem 0' }}>
         <div

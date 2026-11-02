@@ -317,7 +317,7 @@ export const LoginPage: React.FC = () => {
 
   return (
     <AuthLayout
-      title="Stratcrest Flow"
+      title="Drello"
       subtitle="Multi-Tenant SaaS • Organisation & Worker Access"
       footerContent={
         <div style={{ textAlign: 'center', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>

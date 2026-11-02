@@ -113,7 +113,7 @@ export const AppRouter: React.FC = () => {
           >
             <Kanban size={32} />
           </div>
-          <h2 style={{ margin: '1rem 0 0.5rem 0', fontSize: '1.25rem', fontWeight: 700 }}>Stratcrest Flow</h2>
+          <h2 style={{ margin: '1rem 0 0.5rem 0', fontSize: '1.25rem', fontWeight: 700 }}>Drello</h2>
           <div
             style={{
               display: 'flex',

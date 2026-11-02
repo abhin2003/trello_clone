@@ -100,11 +100,11 @@ export const MEMBER_REPLIES: Record<string, string[]> = {
 };
 
 export const DEFAULT_MEMBERS: Member[] = [
-  { id: 'mem-1', name: 'Abhinav Stratcrest', initials: 'AS', avatarColor: '#3b82f6', email: 'abhinav@stratcrest.com' },
-  { id: 'mem-2', name: 'Elena Rostova', initials: 'ER', avatarColor: '#8b5cf6', email: 'elena@stratcrest.com' },
-  { id: 'mem-3', name: 'Marcus Vance', initials: 'MV', avatarColor: '#10b981', email: 'marcus@stratcrest.com' },
-  { id: 'mem-4', name: 'Sofia Rodriguez', initials: 'SR', avatarColor: '#f59e0b', email: 'sofia@stratcrest.com' },
-  { id: 'mem-5', name: 'Devin Thorne', initials: 'DT', avatarColor: '#ec4899', email: 'devin@stratcrest.com' },
+  { id: 'mem-1', name: 'Abhinav Patel', initials: 'AP', avatarColor: '#3b82f6', email: 'abhinav@drello.com' },
+  { id: 'mem-2', name: 'Elena Rostova', initials: 'ER', avatarColor: '#8b5cf6', email: 'elena@drello.com' },
+  { id: 'mem-3', name: 'Marcus Vance', initials: 'MV', avatarColor: '#10b981', email: 'marcus@drello.com' },
+  { id: 'mem-4', name: 'Sofia Rodriguez', initials: 'SR', avatarColor: '#f59e0b', email: 'sofia@drello.com' },
+  { id: 'mem-5', name: 'Devin Thorne', initials: 'DT', avatarColor: '#ec4899', email: 'devin@drello.com' },
 ];
 
 export const DEFAULT_LABELS: Label[] = [
@@ -119,7 +119,7 @@ export const DEFAULT_LABELS: Label[] = [
 export const BACKGROUND_PRESETS = [
   {
     type: 'gradient' as const,
-    name: 'Stratcrest Cobalt',
+    name: 'Drello Cobalt',
     value: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #0284c7 100%)',
     preview: '#1e3a8a',
   },
@@ -160,7 +160,7 @@ export const INITIAL_BOARDS: Board[] = [
     id: 'board-stratcrest-q4',
     organisationId: 'org-acme',
     workspaceId: 'ws-acme-eng',
-    title: 'Stratcrest Enterprise Launch 🚀',
+    title: 'Drello Enterprise Launch 🚀',
     description: 'Core product milestones, client deliverables, and workflow tracking for Q4.',
     isStarred: true,
     background: BACKGROUND_PRESETS[0],
@@ -220,7 +220,7 @@ export const INITIAL_BOARDS: Board[] = [
           {
             id: 'comm-1',
             authorId: 'mem-1',
-            authorName: 'Abhinav Stratcrest',
+            authorName: 'Abhinav Patel',
             authorAvatar: '#3b82f6',
             text: 'I discussed with the client team: Okta SAML 2.0 is prioritized for tier-1 accounts.',
             createdAt: new Date(Date.now() - 3600000 * 4).toISOString(),
@@ -346,7 +346,7 @@ export const INITIAL_BOARDS: Board[] = [
           {
             id: 'comm-3',
             authorId: 'mem-1',
-            authorName: 'Abhinav Stratcrest',
+            authorName: 'Abhinav Patel',
             authorAvatar: '#3b82f6',
             text: 'REA is fully operational and aligned with Antigravity.',
             createdAt: new Date(Date.now() - 3600000 * 1).toISOString(),
@@ -358,7 +358,7 @@ export const INITIAL_BOARDS: Board[] = [
       'card-7': {
         id: 'card-7',
         listId: 'list-4',
-        title: 'Stratcrest Brand Style Guide & Token Registry',
+        title: 'Drello Brand Style Guide & Token Registry',
         description: 'Created core typography, accent color palettes, rounded corner tokens, and elevation drop-shadow guidelines.',
         labels: ['lbl-design', 'lbl-docs'],
         members: ['mem-2', 'mem-4'],
@@ -456,13 +456,13 @@ export const INITIAL_BOARDS: Board[] = [
     organisationId: 'org-stratcrest',
     workspaceId: 'ws-strat-ai',
     title: 'Foundation Model Alignment 🤖',
-    description: 'Stratcrest Global Labs neural alignment and benchmark evaluations.',
+    description: 'Drello Global Labs neural alignment and benchmark evaluations.',
     isStarred: true,
     background: BACKGROUND_PRESETS[4],
     labels: DEFAULT_LABELS,
     members: [
-      { id: 'mem-1', name: 'Abhinav Patel', initials: 'AP', avatarColor: '#3b82f6', email: 'abhinav@stratcrest.com' },
-      { id: 'user-strat-owner', name: 'Dr. Aris Thorne', initials: 'AT', avatarColor: '#6366f1', email: 'aris.thorne@stratcrest.com' },
+      { id: 'mem-1', name: 'Abhinav Patel', initials: 'AP', avatarColor: '#3b82f6', email: 'abhinav@drello.com' },
+      { id: 'user-strat-owner', name: 'Dr. Aris Thorne', initials: 'AT', avatarColor: '#6366f1', email: 'aris.thorne@drello.com' },
     ],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),

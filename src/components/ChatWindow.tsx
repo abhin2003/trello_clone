@@ -174,7 +174,7 @@ export const ChatWindow: React.FC = () => {
             </div>
 
             <div className="wa-encryption-notice">
-              <span>🔒 Messages are end-to-end encrypted for Stratcrest workspace members.</span>
+              <span>🔒 Messages are end-to-end encrypted for Drello workspace members.</span>
             </div>
 
             <div className="wa-messages-list">

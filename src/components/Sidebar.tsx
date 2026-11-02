@@ -225,7 +225,7 @@ export const Sidebar: React.FC = () => {
         <div className="sidebar-footer">
           <div className="enterprise-badge">
             <span className="status-dot" />
-            <span>Stratcrest Flow v1.0 • Connected</span>
+            <span>Drello v1.0 • Connected</span>
           </div>
         </div>
       </aside>

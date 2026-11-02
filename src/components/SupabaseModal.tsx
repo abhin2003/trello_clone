@@ -516,7 +516,7 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({ isOpen, onClose })
                   <div>
                     <h5 style={{ margin: '0 0 4px 0', fontSize: '0.95rem' }}>Push Demo Tenants & Boards to Supabase</h5>
                     <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                      Seeds Acme Corp, TechNova Solutions, Stratcrest Labs, plus active boards, lists, and cards into your Supabase database.
+                      Seeds Acme Corp, TechNova Solutions, Drello Labs, plus active boards, lists, and cards into your Supabase database.
                     </p>
                   </div>
                   <button

@@ -32,7 +32,7 @@ export const LandingPage: React.FC = () => {
             <div className="brand-logo-icon">
               <Kanban size={20} />
             </div>
-            <span className="brand-title">Stratcrest Flow</span>
+            <span className="brand-title">Drello</span>
             <span className="badge-pill badge-active" style={{ fontSize: '0.7rem' }}>
               Multi-Tenant SaaS
             </span>
@@ -133,7 +133,7 @@ export const LandingPage: React.FC = () => {
               </div>
               <div className="browser-url-bar">
                 <Lock size={12} color="#3ecf8e" />
-                <span>app.stratcrestflow.com/org/acme-corp/dashboard</span>
+                <span>app.drello.com/org/acme-corp/dashboard</span>
               </div>
             </div>
             <div className="browser-content-mock">
@@ -293,7 +293,7 @@ export const LandingPage: React.FC = () => {
               <div className="brand-logo-icon">
                 <Kanban size={18} />
               </div>
-              <span className="brand-title">Stratcrest Flow</span>
+              <span className="brand-title">Drello</span>
             </div>
             <p className="footer-copy">
               Commercial multi-tenant visual project management platform powered by Supabase.
@@ -321,7 +321,7 @@ export const LandingPage: React.FC = () => {
         </div>
 
         <div className="footer-bottom-strip">
-          <span>&copy; {new Date().getFullYear()} Stratcrest Flow SaaS. All rights reserved.</span>
+          <span>&copy; {new Date().getFullYear()} Drello. All rights reserved.</span>
           <span style={{ color: '#3ecf8e' }}>PostgreSQL 15+ & Supabase Auth</span>
         </div>
       </footer>

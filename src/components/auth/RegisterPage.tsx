@@ -100,7 +100,7 @@ export const RegisterPage: React.FC = () => {
   return (
     <AuthLayout
       title="Create Your Account"
-      subtitle="Register to join or create an organisation on Stratcrest Flow"
+      subtitle="Register to join or create an organisation on Drello"
       footerContent={
         <div className="auth-footer-links">
           <span>Already have an account?</span>
