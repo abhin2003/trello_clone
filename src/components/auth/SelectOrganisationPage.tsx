@@ -360,9 +360,6 @@ export const SelectOrganisationPage: React.FC = () => {
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                         <span className="org-card-name">{org.name}</span>
-                        <span className="badge-pill badge-neutral" style={{ textTransform: 'capitalize' }}>
-                          {org.planId.replace('_', ' ')}
-                        </span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
                         {renderRoleBadge(m.role)}

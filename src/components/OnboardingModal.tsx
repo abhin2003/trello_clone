@@ -181,7 +181,7 @@ export const OnboardingModal: React.FC = () => {
 
               <div className="onboarding-footer-cta">
                 <button type="submit" className="primary-cta-btn w-full">
-                  <span>Create Organisation & Start 14-Day Trial</span>
+                  <span>Create Organisation</span>
                   <ArrowRight size={16} />
                 </button>
               </div>

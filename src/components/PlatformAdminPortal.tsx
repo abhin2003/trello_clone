@@ -382,7 +382,7 @@ export const PlatformAdminPortal: React.FC = () => {
                         value={provPlan}
                         onChange={(e) => setProvPlan(e.target.value as SubscriptionPlanId)}
                       >
-                        <option value="free_trial">Free / Trial (5 members, 3 boards)</option>
+                        <option value="free_trial">Standard / Community</option>
                         <option value="starter">Starter (15 members, 20 boards)</option>
                         <option value="professional">Professional (100 members, unlimited boards)</option>
                         <option value="enterprise">Enterprise (Unlimited, Dedicated SLA)</option>
