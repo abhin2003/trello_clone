@@ -1,0 +1,778 @@
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import type { Board, Card, FilterOptions, BoardBackground, ChatMessage } from '../types';
+import { INITIAL_BOARDS, DEFAULT_LABELS, DEFAULT_MEMBERS, INITIAL_CHATS, MEMBER_REPLIES } from '../data/initialData';
+import { useTenant } from './TenantContext';
+import { tenantService } from '../services/tenantService';
+import confetti from 'canvas-confetti';
+
+const STORAGE_KEY = 'stratcrest_flow_boards_v1';
+const THEME_KEY = 'stratcrest_flow_theme';
+
+interface BoardContextType {
+  boards: Board[];
+  activeBoard: Board;
+  activeBoardId: string;
+  theme: 'dark' | 'light';
+  isSidebarOpen: boolean;
+  activeCardId: string | null;
+  filter: FilterOptions;
+  isFilterOpen: boolean;
+  isShortcutsOpen: boolean;
+  isNewBoardOpen: boolean;
+  isBgPickerOpen: boolean;
+  
+  // Board operations
+  setActiveBoardId: (id: string) => void;
+  createBoard: (title: string, background: BoardBackground, description?: string, workspaceId?: string) => string;
+  updateBoard: (boardId: string, updates: Partial<Board>) => void;
+  deleteBoard: (boardId: string) => void;
+  toggleStarBoard: (boardId: string) => void;
+  setBoardBackground: (background: BoardBackground) => void;
+  exportBoardJSON: () => void;
+  importBoardJSON: (jsonString: string) => boolean;
+
+  // List operations
+  addList: (title: string) => void;
+  updateListTitle: (listId: string, title: string) => void;
+  deleteList: (listId: string) => void;
+  moveList: (sourceIndex: number, destIndex: number) => void;
+
+  // Card operations
+  addCard: (listId: string, title: string) => void;
+  updateCard: (cardId: string, updates: Partial<Card>) => void;
+  deleteCard: (cardId: string) => void;
+  moveCard: (cardId: string, sourceListId: string, destListId: string, destIndex: number) => void;
+  openCardModal: (cardId: string) => void;
+  closeCardModal: () => void;
+
+  // Checklists
+  addChecklist: (cardId: string, title: string) => void;
+  deleteChecklist: (cardId: string, checklistId: string) => void;
+  addChecklistItem: (cardId: string, checklistId: string, text: string) => void;
+  toggleChecklistItem: (cardId: string, checklistId: string, itemId: string) => void;
+  deleteChecklistItem: (cardId: string, checklistId: string, itemId: string) => void;
+
+  // Comments & Labels & Members
+  addComment: (cardId: string, text: string) => void;
+  toggleCardLabel: (cardId: string, labelId: string) => void;
+  addBoardLabel: (name: string, color: string) => void;
+  toggleCardMember: (cardId: string, memberId: string) => void;
+
+  // Filter & Modals
+  setFilter: (updates: Partial<FilterOptions>) => void;
+  clearFilter: () => void;
+  toggleTheme: () => void;
+  setIsSidebarOpen: (open: boolean) => void;
+  setIsFilterOpen: (open: boolean) => void;
+  setIsShortcutsOpen: (open: boolean) => void;
+  setIsNewBoardOpen: (open: boolean) => void;
+  setIsBgPickerOpen: (open: boolean) => void;
+
+  // Chat features
+  activeChatMemberId: string | null;
+  openChat: (memberId: string) => void;
+  closeChat: () => void;
+  chatMessages: Record<string, ChatMessage[]>;
+  isTyping: boolean;
+  sendChatMessage: (memberId: string, text: string) => void;
+}
+
+const defaultFilter: FilterOptions = {
+  searchQuery: '',
+  selectedLabelIds: [],
+  selectedMemberIds: [],
+  dueFilter: 'all',
+};
+
+const BoardContext = createContext<BoardContextType | undefined>(undefined);
+
+export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Load boards from local storage or seed
+  const [boards, setBoards] = useState<Board[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn('Failed to parse saved boards', e);
+    }
+    return INITIAL_BOARDS;
+  });
+
+  const [activeBoardId, setActiveBoardId] = useState<string>(() => boards[0]?.id || 'board-stratcrest-q4');
+
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    const saved = localStorage.getItem(THEME_KEY);
+    return saved === 'light' ? 'light' : 'dark';
+  });
+
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [activeCardId, setActiveCardId] = useState<string | null>(null);
+  const [filter, setFilterState] = useState<FilterOptions>(defaultFilter);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const [isNewBoardOpen, setIsNewBoardOpen] = useState(false);
+  const [isBgPickerOpen, setIsBgPickerOpen] = useState(false);
+
+  // Chat state
+  const CHAT_STORAGE_KEY = 'stratcrest_flow_chat_messages_v1';
+  const [activeChatMemberId, setActiveChatMemberId] = useState<string | null>(null);
+  const [isTyping, setIsTyping] = useState(false);
+  const [chatMessages, setChatMessages] = useState<Record<string, ChatMessage[]>>(() => {
+    try {
+      const saved = localStorage.getItem(CHAT_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.warn('Failed to parse chat messages', e);
+    }
+    return INITIAL_CHATS;
+  });
+
+  // Sync chat messages to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(chatMessages));
+    } catch (e) {
+      console.error('Chat storage write error', e);
+    }
+  }, [chatMessages]);
+
+  // Sync to local storage
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(boards));
+    } catch (e) {
+      console.error('Storage write error', e);
+    }
+  }, [boards]);
+
+  // Sync theme
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem(THEME_KEY, theme);
+  }, [theme]);
+
+  // Global Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if inside input/textarea
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) {
+        if (e.key === 'Escape') {
+          (e.target as HTMLElement).blur();
+        }
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        if (activeCardId) closeCardModal();
+        else if (isFilterOpen) setIsFilterOpen(false);
+        else if (isShortcutsOpen) setIsShortcutsOpen(false);
+        else if (isNewBoardOpen) setIsNewBoardOpen(false);
+        else if (isBgPickerOpen) setIsBgPickerOpen(false);
+        else if (isSidebarOpen) setIsSidebarOpen(false);
+      } else if (e.key === '?' || (e.key === '/' && e.shiftKey)) {
+        setIsShortcutsOpen((prev) => !prev);
+      } else if (e.key === 'b' || e.key === 'B') {
+        setIsSidebarOpen((prev) => !prev);
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        setIsFilterOpen(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeCardId, isFilterOpen, isShortcutsOpen, isNewBoardOpen, isBgPickerOpen, isSidebarOpen]);
+
+  const { activeOrg, setIsUpgradeModalOpen, setQuotaWarning } = useTenant();
+
+  // Filter boards to ONLY those belonging to the active organisation
+  const tenantBoards = useMemo(() => {
+    return boards.filter((b) => (b.organisationId || 'org-acme') === activeOrg.id);
+  }, [boards, activeOrg.id]);
+
+  // Ensure active board is within this tenant
+  useEffect(() => {
+    if (tenantBoards.length > 0) {
+      if (!tenantBoards.some((b) => b.id === activeBoardId)) {
+        setActiveBoardId(tenantBoards[0].id);
+      }
+    }
+  }, [tenantBoards, activeBoardId]);
+
+  const activeBoard = useMemo(() => {
+    const found = tenantBoards.find((b) => b.id === activeBoardId);
+    return found || tenantBoards[0] || boards[0];
+  }, [tenantBoards, activeBoardId, boards]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
+  const createBoard = (title: string, background: BoardBackground, description?: string, workspaceId?: string): string => {
+    const stats = tenantService.getUsageStats(activeOrg.id, tenantBoards.length);
+    if (stats.isBoardLimitReached) {
+      setQuotaWarning(`Board limit reached: Plan "${stats.plan.name}" allows up to ${stats.maxBoards} boards. Please upgrade your subscription.`);
+      setIsUpgradeModalOpen(true);
+      throw new Error(`Board limit reached for current subscription plan.`);
+    }
+
+    const newBoardId = `board-${Date.now()}`;
+    const newBoard: Board = {
+      id: newBoardId,
+      organisationId: activeOrg.id,
+      workspaceId: workspaceId || undefined,
+      title: title.trim(),
+      description: description?.trim() || '',
+      isStarred: false,
+      background,
+      labels: DEFAULT_LABELS,
+      members: DEFAULT_MEMBERS,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      lists: [
+        { id: `list-${Date.now()}-1`, boardId: newBoardId, title: 'To Do', cardIds: [] },
+        { id: `list-${Date.now()}-2`, boardId: newBoardId, title: 'Doing', cardIds: [] },
+        { id: `list-${Date.now()}-3`, boardId: newBoardId, title: 'Done', cardIds: [] },
+      ],
+      cards: {},
+    };
+
+    setBoards((prev) => [newBoard, ...prev]);
+    setActiveBoardId(newBoardId);
+    return newBoardId;
+  };
+
+  const updateBoard = (boardId: string, updates: Partial<Board>) => {
+    setBoards((prev) =>
+      prev.map((b) => (b.id === boardId ? { ...b, ...updates, updatedAt: new Date().toISOString() } : b))
+    );
+  };
+
+  const deleteBoard = (boardId: string) => {
+    if (boards.length <= 1) {
+      alert('You cannot delete the only remaining board.');
+      return;
+    }
+    const remaining = boards.filter((b) => b.id !== boardId);
+    setBoards(remaining);
+    if (activeBoardId === boardId) {
+      setActiveBoardId(remaining[0].id);
+    }
+  };
+
+  const toggleStarBoard = (boardId: string) => {
+    setBoards((prev) =>
+      prev.map((b) => (b.id === boardId ? { ...b, isStarred: !b.isStarred } : b))
+    );
+  };
+
+  const setBoardBackground = (background: BoardBackground) => {
+    updateBoard(activeBoard.id, { background });
+  };
+
+  const exportBoardJSON = () => {
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(activeBoard, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute('href', dataStr);
+    downloadAnchor.setAttribute('download', `${activeBoard.title.replace(/\s+/g, '_')}_stratcrest_export.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
+
+  const importBoardJSON = (jsonString: string): boolean => {
+    try {
+      const parsed = JSON.parse(jsonString);
+      if (!parsed.title || !parsed.lists) {
+        alert('Invalid board JSON format: missing required fields.');
+        return false;
+      }
+      const newBoardId = `board-imported-${Date.now()}`;
+      const importedBoard: Board = {
+        ...parsed,
+        id: newBoardId,
+        title: `${parsed.title} (Imported)`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      setBoards((prev) => [importedBoard, ...prev]);
+      setActiveBoardId(newBoardId);
+      return true;
+    } catch (e) {
+      alert('Error parsing JSON file. Please ensure it is a valid board export.');
+      return false;
+    }
+  };
+
+  // --- List operations ---
+  const addList = (title: string) => {
+    if (!title.trim()) return;
+    const newListId = `list-${Date.now()}`;
+    const newList = {
+      id: newListId,
+      boardId: activeBoard.id,
+      title: title.trim(),
+      cardIds: [],
+    };
+    updateBoard(activeBoard.id, {
+      lists: [...activeBoard.lists, newList],
+    });
+  };
+
+  const updateListTitle = (listId: string, title: string) => {
+    if (!title.trim()) return;
+    updateBoard(activeBoard.id, {
+      lists: activeBoard.lists.map((l) => (l.id === listId ? { ...l, title: title.trim() } : l)),
+    });
+  };
+
+  const deleteList = (listId: string) => {
+    const targetList = activeBoard.lists.find((l) => l.id === listId);
+    if (!targetList) return;
+
+    // Clean up cards in target list
+    const updatedCards = { ...activeBoard.cards };
+    targetList.cardIds.forEach((cId) => {
+      delete updatedCards[cId];
+    });
+
+    updateBoard(activeBoard.id, {
+      lists: activeBoard.lists.filter((l) => l.id !== listId),
+      cards: updatedCards,
+    });
+  };
+
+  const moveList = (sourceIndex: number, destIndex: number) => {
+    if (sourceIndex === destIndex) return;
+    const newLists = Array.from(activeBoard.lists);
+    const [moved] = newLists.splice(sourceIndex, 1);
+    newLists.splice(destIndex, 0, moved);
+    updateBoard(activeBoard.id, { lists: newLists });
+  };
+
+  // --- Card operations ---
+  const addCard = (listId: string, title: string) => {
+    if (!title.trim()) return;
+    const newCardId = `card-${Date.now()}`;
+    const newCard: Card = {
+      id: newCardId,
+      listId,
+      title: title.trim(),
+      description: '',
+      labels: [],
+      members: [],
+      checklists: [],
+      comments: [],
+      activities: [
+        {
+          id: `act-${Date.now()}`,
+          text: `Card created in list "${activeBoard.lists.find((l) => l.id === listId)?.title}"`,
+          createdAt: new Date().toISOString(),
+          type: 'create',
+        },
+      ],
+      createdAt: new Date().toISOString(),
+    };
+
+    const updatedLists = activeBoard.lists.map((l) =>
+      l.id === listId ? { ...l, cardIds: [...l.cardIds, newCardId] } : l
+    );
+
+    updateBoard(activeBoard.id, {
+      lists: updatedLists,
+      cards: { ...activeBoard.cards, [newCardId]: newCard },
+    });
+  };
+
+  const updateCard = (cardId: string, updates: Partial<Card>) => {
+    const currentCard = activeBoard.cards[cardId];
+    if (!currentCard) return;
+
+    updateBoard(activeBoard.id, {
+      cards: {
+        ...activeBoard.cards,
+        [cardId]: {
+          ...currentCard,
+          ...updates,
+        },
+      },
+    });
+  };
+
+  const deleteCard = (cardId: string) => {
+    const card = activeBoard.cards[cardId];
+    if (!card) return;
+
+    const updatedLists = activeBoard.lists.map((l) =>
+      l.id === card.listId ? { ...l, cardIds: l.cardIds.filter((id) => id !== cardId) } : l
+    );
+
+    const updatedCards = { ...activeBoard.cards };
+    delete updatedCards[cardId];
+
+    updateBoard(activeBoard.id, {
+      lists: updatedLists,
+      cards: updatedCards,
+    });
+
+    if (activeCardId === cardId) {
+      setActiveCardId(null);
+    }
+  };
+
+  const moveCard = (cardId: string, sourceListId: string, destListId: string, destIndex: number) => {
+    const sourceList = activeBoard.lists.find((l) => l.id === sourceListId);
+    const destList = activeBoard.lists.find((l) => l.id === destListId);
+    if (!sourceList || !destList) return;
+
+    // Create copies
+    const newSourceCards = Array.from(sourceList.cardIds.filter((id) => id !== cardId));
+    const newDestCards = sourceListId === destListId ? newSourceCards : Array.from(destList.cardIds);
+
+    // Insert at destIndex
+    newDestCards.splice(destIndex, 0, cardId);
+
+    const updatedLists = activeBoard.lists.map((l) => {
+      if (l.id === sourceListId && sourceListId === destListId) {
+        return { ...l, cardIds: newDestCards };
+      }
+      if (l.id === sourceListId) {
+        return { ...l, cardIds: newSourceCards };
+      }
+      if (l.id === destListId) {
+        return { ...l, cardIds: newDestCards };
+      }
+      return l;
+    });
+
+    const card = activeBoard.cards[cardId];
+    const newActivity =
+      sourceListId !== destListId
+        ? {
+            id: `act-${Date.now()}`,
+            text: `Moved to ${destList.title}`,
+            createdAt: new Date().toISOString(),
+            type: 'move' as const,
+          }
+        : null;
+
+    updateBoard(activeBoard.id, {
+      lists: updatedLists,
+      cards: {
+        ...activeBoard.cards,
+        [cardId]: {
+          ...card,
+          listId: destListId,
+          activities: newActivity ? [newActivity, ...(card.activities || [])] : card.activities,
+        },
+      },
+    });
+  };
+
+  const openCardModal = (cardId: string) => {
+    setActiveCardId(cardId);
+  };
+
+  const closeCardModal = () => {
+    setActiveCardId(null);
+  };
+
+  // --- Checklists ---
+  const addChecklist = (cardId: string, title: string) => {
+    const card = activeBoard.cards[cardId];
+    if (!card) return;
+    const newChecklist = {
+      id: `chk-${Date.now()}`,
+      title: title.trim() || 'Checklist',
+      items: [],
+    };
+    updateCard(cardId, {
+      checklists: [...(card.checklists || []), newChecklist],
+    });
+  };
+
+  const deleteChecklist = (cardId: string, checklistId: string) => {
+    const card = activeBoard.cards[cardId];
+    if (!card) return;
+    updateCard(cardId, {
+      checklists: card.checklists.filter((c) => c.id !== checklistId),
+    });
+  };
+
+  const addChecklistItem = (cardId: string, checklistId: string, text: string) => {
+    if (!text.trim()) return;
+    const card = activeBoard.cards[cardId];
+    if (!card) return;
+
+    const newItem = {
+      id: `item-${Date.now()}`,
+      text: text.trim(),
+      completed: false,
+    };
+
+    updateCard(cardId, {
+      checklists: card.checklists.map((c) =>
+        c.id === checklistId ? { ...c, items: [...c.items, newItem] } : c
+      ),
+    });
+  };
+
+  const toggleChecklistItem = (cardId: string, checklistId: string, itemId: string) => {
+    const card = activeBoard.cards[cardId];
+    if (!card) return;
+
+    let allCompleted = false;
+
+    const updatedChecklists = card.checklists.map((c) => {
+      if (c.id !== checklistId) return c;
+      const updatedItems = c.items.map((it) => (it.id === itemId ? { ...it, completed: !it.completed } : it));
+      if (updatedItems.length > 0 && updatedItems.every((it) => it.completed)) {
+        allCompleted = true;
+      }
+      return { ...c, items: updatedItems };
+    });
+
+    if (allCompleted) {
+      try {
+        confetti({
+          particleCount: 50,
+          spread: 60,
+          origin: { y: 0.6 },
+          colors: ['#3b82f6', '#10b981', '#f59e0b', '#ec4899'],
+        });
+      } catch (e) {
+        // Safe fallback
+      }
+    }
+
+    updateCard(cardId, { checklists: updatedChecklists });
+  };
+
+  const deleteChecklistItem = (cardId: string, checklistId: string, itemId: string) => {
+    const card = activeBoard.cards[cardId];
+    if (!card) return;
+
+    updateCard(cardId, {
+      checklists: card.checklists.map((c) =>
+        c.id === checklistId ? { ...c, items: c.items.filter((it) => it.id !== itemId) } : c
+      ),
+    });
+  };
+
+  // --- Comments & Labels ---
+  const addComment = (cardId: string, text: string) => {
+    if (!text.trim()) return;
+    const card = activeBoard.cards[cardId];
+    if (!card) return;
+
+    const newComment = {
+      id: `comm-${Date.now()}`,
+      authorId: 'mem-1',
+      authorName: 'Abhinav Stratcrest',
+      authorAvatar: '#3b82f6',
+      text: text.trim(),
+      createdAt: new Date().toISOString(),
+    };
+
+    const newActivity = {
+      id: `act-${Date.now()}`,
+      text: `Added comment: "${text.trim().substring(0, 40)}..."`,
+      createdAt: new Date().toISOString(),
+      type: 'comment' as const,
+    };
+
+    updateCard(cardId, {
+      comments: [newComment, ...(card.comments || [])],
+      activities: [newActivity, ...(card.activities || [])],
+    });
+  };
+
+  const toggleCardLabel = (cardId: string, labelId: string) => {
+    const card = activeBoard.cards[cardId];
+    if (!card) return;
+    const exists = card.labels.includes(labelId);
+    const newLabels = exists ? card.labels.filter((id) => id !== labelId) : [...card.labels, labelId];
+    updateCard(cardId, { labels: newLabels });
+  };
+
+  const addBoardLabel = (name: string, color: string) => {
+    if (!name.trim()) return;
+    const newLabel = {
+      id: `lbl-${Date.now()}`,
+      name: name.trim(),
+      color,
+      textColor: '#ffffff',
+    };
+    updateBoard(activeBoard.id, {
+      labels: [...activeBoard.labels, newLabel],
+    });
+  };
+
+  const toggleCardMember = (cardId: string, memberId: string) => {
+    const card = activeBoard.cards[cardId];
+    if (!card) return;
+    const exists = card.members.includes(memberId);
+    const newMembers = exists ? card.members.filter((id) => id !== memberId) : [...card.members, memberId];
+    updateCard(cardId, { members: newMembers });
+  };
+
+  const setFilter = (updates: Partial<FilterOptions>) => {
+    setFilterState((prev) => ({ ...prev, ...updates }));
+  };
+
+  const clearFilter = () => {
+    setFilterState(defaultFilter);
+  };
+
+  // Chat handlers
+  const openChat = (memberId: string) => {
+    setActiveChatMemberId(memberId);
+  };
+
+  const closeChat = () => {
+    setActiveChatMemberId(null);
+    setIsTyping(false);
+  };
+
+  const sendChatMessage = (memberId: string, text: string) => {
+    if (!text.trim()) return;
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const msgId = `msg-${Date.now()}`;
+
+    const newMsg: ChatMessage = {
+      id: msgId,
+      senderId: 'user',
+      text: text.trim(),
+      timestamp: timeStr,
+      status: 'sent',
+    };
+
+    setChatMessages((prev) => ({
+      ...prev,
+      [memberId]: [...(prev[memberId] || []), newMsg],
+    }));
+
+    // Status updates: sent -> delivered -> read
+    setTimeout(() => {
+      setChatMessages((prev) => ({
+        ...prev,
+        [memberId]: (prev[memberId] || []).map((m) =>
+          m.id === msgId ? { ...m, status: 'delivered' } : m
+        ),
+      }));
+    }, 450);
+
+    setTimeout(() => {
+      setChatMessages((prev) => ({
+        ...prev,
+        [memberId]: (prev[memberId] || []).map((m) =>
+          m.id === msgId ? { ...m, status: 'read' } : m
+        ),
+      }));
+    }, 950);
+
+    // Simulate smart team member response if not messaging self
+    if (memberId !== 'mem-1') {
+      setTimeout(() => {
+        setIsTyping(true);
+      }, 1400);
+
+      setTimeout(() => {
+        setIsTyping(false);
+        const replies = MEMBER_REPLIES[memberId] || [
+          "Got your message! I'm on it.",
+          "Sounds good, updating the board now.",
+          "Thanks for the update!",
+        ];
+        const randomReply = replies[Math.floor(Math.random() * replies.length)];
+        const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        const replyMsg: ChatMessage = {
+          id: `reply-${Date.now()}`,
+          senderId: memberId,
+          text: randomReply,
+          timestamp: replyTime,
+          status: 'read',
+        };
+
+        setChatMessages((prev) => ({
+          ...prev,
+          [memberId]: [...(prev[memberId] || []), replyMsg],
+        }));
+      }, 2800);
+    }
+  };
+
+  return (
+    <BoardContext.Provider
+      value={{
+        boards: tenantBoards,
+        activeBoard,
+        activeBoardId,
+        theme,
+        isSidebarOpen,
+        activeCardId,
+        filter,
+        isFilterOpen,
+        isShortcutsOpen,
+        isNewBoardOpen,
+        isBgPickerOpen,
+        setActiveBoardId,
+        createBoard,
+        updateBoard,
+        deleteBoard,
+        toggleStarBoard,
+        setBoardBackground,
+        exportBoardJSON,
+        importBoardJSON,
+        addList,
+        updateListTitle,
+        deleteList,
+        moveList,
+        addCard,
+        updateCard,
+        deleteCard,
+        moveCard,
+        openCardModal,
+        closeCardModal,
+        addChecklist,
+        deleteChecklist,
+        addChecklistItem,
+        toggleChecklistItem,
+        deleteChecklistItem,
+        addComment,
+        toggleCardLabel,
+        addBoardLabel,
+        toggleCardMember,
+        setFilter,
+        clearFilter,
+        toggleTheme,
+        setIsSidebarOpen,
+        setIsFilterOpen,
+        setIsShortcutsOpen,
+        setIsNewBoardOpen,
+        setIsBgPickerOpen,
+        activeChatMemberId,
+        openChat,
+        closeChat,
+        chatMessages,
+        isTyping,
+        sendChatMessage,
+      }}
+    >
+      {children}
+    </BoardContext.Provider>
+  );
+};
+
+export const useBoard = () => {
+  const context = useContext(BoardContext);
+  if (!context) {
+    throw new Error('useBoard must be used within a BoardProvider');
+  }
+  return context;
+};
