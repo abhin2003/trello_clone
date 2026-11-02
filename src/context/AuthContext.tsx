@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import type { UserProfile, Organisation, UserRole } from '../types/saas';
-import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabase';
-import { authService, type UserOrgMembership } from '../services/authService';
+import { getSupabaseClient, isSupabaseConfigured, isSupabaseAuthEnabled } from '../lib/supabase';
+import { authService, getMockSession, type UserOrgMembership } from '../services/authService';
 import { tenantService } from '../services/tenantService';
 
 export type AuthScreen =
@@ -33,8 +33,9 @@ interface AuthContextType {
   resetPassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   selectOrganisation: (orgId: string) => void;
-  createOrganisation: (orgName: string, planId?: string) => Promise<{ success: boolean; error?: string }>;
-  claimInvitation: (token: string) => Promise<{ success: boolean; error?: string }>;
+  createOrganisation: (orgName: string, planId?: string) => Promise<{ success: boolean; organisationId?: string; organisation?: Organisation; error?: string }>;
+  claimInvitation: (token: string) => Promise<{ success: boolean; organisationId?: string; organisation?: Organisation; error?: string }>;
+  joinOrganisation: (orgId: string, role?: UserRole) => Promise<{ success: boolean; organisation?: Organisation; error?: string }>;
   refreshMemberships: () => Promise<void>;
 }
 
@@ -141,8 +142,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Initialize Auth state listener
   useEffect(() => {
-    if (!isSupabaseConfigured()) {
-      setLoading(false);
+    if (!isSupabaseConfigured() || !isSupabaseAuthEnabled()) {
+      const mock = getMockSession();
+      syncUserSession(mock);
       return;
     }
 
@@ -231,6 +233,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAuthError(res.error);
       return { success: false, error: res.error };
     }
+    if (!isSupabaseAuthEnabled()) {
+      const mock = getMockSession();
+      await syncUserSession(mock);
+      return { success: true };
+    }
+
     // After password reset, fetch current session and redirect to organization check
     const client = getSupabaseClient();
     const { data } = await client.auth.getSession();
@@ -280,7 +288,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const res = await authService.createOrganisation(orgName, planId);
     if (res.success && res.organisationId) {
       await refreshMemberships();
-      return { success: true };
+      return { success: true, organisationId: res.organisationId, organisation: res.organisation };
     }
     return { success: false, error: res.error || 'Failed to create organisation' };
   };
@@ -289,9 +297,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const res = await authService.claimInvitationToken(token);
     if (res.success && res.organisationId) {
       await refreshMemberships();
-      return { success: true };
+      return { success: true, organisationId: res.organisationId, organisation: res.organisation };
     }
     return { success: false, error: res.error || 'Invalid invitation code' };
+  };
+
+  const joinOrganisation = async (orgId: string, role: UserRole = 'member') => {
+    const res = await authService.joinOrganisation(orgId, role);
+    if (res.success && res.organisation) {
+      await refreshMemberships();
+      return { success: true, organisation: res.organisation };
+    }
+    return { success: false, error: res.error || 'Failed to join organisation' };
   };
 
   return (
@@ -316,6 +333,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         selectOrganisation,
         createOrganisation,
         claimInvitation,
+        joinOrganisation,
         refreshMemberships,
       }}
     >

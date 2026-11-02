@@ -11,9 +11,20 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { AuthLayout } from './AuthLayout';
+import { useNavigate } from '../../router/Router';
 
 export const NoOrganisationPage: React.FC = () => {
-  const { userProfile, user, createOrganisation, claimInvitation, logout, refreshMemberships } = useAuth();
+  const navigate = useNavigate();
+  const {
+    userProfile,
+    user,
+    createOrganisation,
+    claimInvitation,
+    joinOrganisation,
+    selectOrganisation,
+    logout,
+    refreshMemberships,
+  } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'create' | 'invite'>('create');
   const [orgName, setOrgName] = useState('');
@@ -31,6 +42,13 @@ export const NoOrganisationPage: React.FC = () => {
       const res = await createOrganisation(orgName.trim());
       if (!res.success) {
         setError(res.error || 'Failed to create organisation');
+      } else {
+        const createdSlug = res.organisation?.slug || orgName.trim().toLowerCase().replace(/[^a-z0-9]/g, '-');
+        const orgId = res.organisation?.id || res.organisationId;
+        if (orgId) {
+          selectOrganisation(orgId);
+        }
+        navigate(`/org/${createdSlug}/dashboard`);
       }
     } finally {
       setLoading(false);
@@ -47,6 +65,29 @@ export const NoOrganisationPage: React.FC = () => {
       const res = await claimInvitation(inviteToken.trim());
       if (!res.success) {
         setError(res.error || 'Invalid or expired invitation token');
+      } else {
+        const orgId = res.organisation?.id || res.organisationId;
+        const slug = res.organisation?.slug || 'acme-corp';
+        if (orgId) {
+          selectOrganisation(orgId);
+        }
+        navigate(`/org/${slug}/dashboard`);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleQuickJoinDemo = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await joinOrganisation('org-acme', 'owner');
+      if (res.success && res.organisation) {
+        selectOrganisation(res.organisation.id);
+        navigate(`/org/${res.organisation.slug}/dashboard`);
+      } else {
+        setError(res.error || 'Failed to join demo organisation');
       }
     } finally {
       setLoading(false);
@@ -215,6 +256,18 @@ export const NoOrganisationPage: React.FC = () => {
             </button>
           </form>
         )}
+
+        <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border-light)', textAlign: 'center' }}>
+          <button
+            type="button"
+            className="secondary-btn"
+            style={{ width: '100%', justifyContent: 'center', fontSize: '0.84rem' }}
+            onClick={handleQuickJoinDemo}
+            disabled={loading}
+          >
+            🚀 Quick Start: Join Demo Organisation (Acme Corp)
+          </button>
+        </div>
       </div>
     </AuthLayout>
   );

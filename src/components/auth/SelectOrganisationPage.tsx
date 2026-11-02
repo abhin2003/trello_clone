@@ -13,15 +13,18 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { AuthLayout } from './AuthLayout';
+import { useNavigate } from '../../router/Router';
 import type { UserRole } from '../../types/saas';
 
 export const SelectOrganisationPage: React.FC = () => {
+  const navigate = useNavigate();
   const {
     userProfile,
     memberships,
     selectOrganisation,
     createOrganisation,
     claimInvitation,
+    joinOrganisation,
     logout,
   } = useAuth();
 
@@ -44,7 +47,13 @@ export const SelectOrganisationPage: React.FC = () => {
         setActionError(res.error || 'Failed to create organisation');
       } else {
         setIsCreating(false);
+        const createdSlug = res.organisation?.slug || newOrgName.trim().toLowerCase().replace(/[^a-z0-9]/g, '-');
+        const orgId = res.organisation?.id || res.organisationId;
+        if (orgId) {
+          selectOrganisation(orgId);
+        }
         setNewOrgName('');
+        navigate(`/org/${createdSlug}/dashboard`);
       }
     } finally {
       setActionLoading(false);
@@ -64,6 +73,28 @@ export const SelectOrganisationPage: React.FC = () => {
       } else {
         setIsClaiming(false);
         setInviteToken('');
+        const orgId = res.organisation?.id || res.organisationId;
+        const slug = res.organisation?.slug || 'acme-corp';
+        if (orgId) {
+          selectOrganisation(orgId);
+        }
+        navigate(`/org/${slug}/dashboard`);
+      }
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleQuickJoinDemo = async () => {
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const res = await joinOrganisation('org-acme', 'owner');
+      if (res.success && res.organisation) {
+        selectOrganisation(res.organisation.id);
+        navigate(`/org/${res.organisation.slug}/dashboard`);
+      } else {
+        setActionError(res.error || 'Failed to join demo organisation');
       }
     } finally {
       setActionLoading(false);
@@ -104,8 +135,12 @@ export const SelectOrganisationPage: React.FC = () => {
 
   return (
     <AuthLayout
-      title="Select Your Organisation"
-      subtitle={`Welcome back, ${userProfile?.name || 'User'}. Choose which organisation workspace to open.`}
+      title={memberships.length === 0 ? "Create Your Workspace" : "Select Your Organisation"}
+      subtitle={
+        memberships.length === 0
+          ? `Welcome, ${userProfile?.name || 'User'}. Set up your organisation workspace to start using Stratcrest Flow.`
+          : `Welcome back, ${userProfile?.name || 'User'}. Choose which organisation workspace to open.`
+      }
       footerContent={
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
           <button
@@ -130,17 +165,19 @@ export const SelectOrganisationPage: React.FC = () => {
             >
               Have an invitation code?
             </button>
-            <button
-              type="button"
-              className="auth-link-btn"
-              onClick={() => {
-                setIsCreating((p) => !p);
-                setIsClaiming(false);
-                setActionError(null);
-              }}
-            >
-              + Create new organisation
-            </button>
+            {memberships.length > 0 && (
+              <button
+                type="button"
+                className="auth-link-btn"
+                onClick={() => {
+                  setIsCreating((p) => !p);
+                  setIsClaiming(false);
+                  setActionError(null);
+                }}
+              >
+                + Create new organisation
+              </button>
+            )}
           </div>
         </div>
       }
@@ -184,8 +221,8 @@ export const SelectOrganisationPage: React.FC = () => {
           </form>
         )}
 
-        {/* Create Organisation Accordion Form */}
-        {isCreating && (
+        {/* Create Organisation Accordion Form (for when user already has orgs and toggled create) */}
+        {isCreating && memberships.length > 0 && (
           <form onSubmit={handleCreateOrg} className="callout-card" style={{ marginBottom: '1.25rem' }}>
             <h4 style={{ margin: '0 0 6px 0', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Plus size={16} color="var(--accent-emerald)" />
@@ -214,56 +251,136 @@ export const SelectOrganisationPage: React.FC = () => {
           </form>
         )}
 
-        {/* Organisations List Grid */}
-        <div className="org-cards-list">
-          {memberships.map((m) => {
-            const org = m.organisation;
-            const isSuspended = org.status === 'suspended';
+        {/* Zero Organisations State: Direct creation and quick start */}
+        {memberships.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '6px 0 12px 0' }}>
+            <div
+              style={{
+                width: '54px',
+                height: '54px',
+                borderRadius: '14px',
+                background: 'rgba(59, 130, 246, 0.12)',
+                border: '1px solid rgba(59, 130, 246, 0.25)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: '14px',
+              }}
+            >
+              <Building2 size={26} color="var(--accent-blue)" />
+            </div>
 
-            return (
-              <div
-                key={org.id}
-                className={`org-selection-card ${isSuspended ? 'card-suspended' : ''}`}
-                onClick={() => selectOrganisation(org.id)}
-              >
-                <div className="org-card-left">
-                  <div
-                    className="org-avatar-box"
-                    style={{ backgroundColor: org.primaryColor || '#3b82f6' }}
-                  >
-                    <Building2 size={20} color="#ffffff" />
-                  </div>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <span className="org-card-name">{org.name}</span>
-                      <span className="badge-pill badge-neutral" style={{ textTransform: 'capitalize' }}>
-                        {org.planId.replace('_', ' ')}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-                      {renderRoleBadge(m.role)}
-                      {m.jobTitle && <span className="org-card-job">{m.jobTitle}</span>}
-                    </div>
-                  </div>
-                </div>
+            <h3 style={{ margin: '0 0 6px 0', fontSize: '1.2rem', fontWeight: 600, color: '#f8fafc' }}>
+              Create Your Organisation
+            </h3>
+            <p style={{ margin: '0 auto 20px auto', maxWidth: '420px', fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              You don't have an organisation workspace yet. Enter your company or team name below to initialize your workspace as Owner and open your visual Kanban boards.
+            </p>
 
-                <div className="org-card-right">
-                  <button
-                    type="button"
-                    className="org-enter-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      selectOrganisation(org.id);
-                    }}
-                  >
-                    <span>Enter</span>
-                    <ArrowRight size={16} />
-                  </button>
-                </div>
+            <form onSubmit={handleCreateOrg} style={{ maxWidth: '420px', margin: '0 auto', textAlign: 'left' }}>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  Organisation / Company Name
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. Stratcrest Innovations or Abhin Tech"
+                  value={newOrgName}
+                  onChange={(e) => setNewOrgName(e.target.value)}
+                  autoFocus
+                  required
+                />
               </div>
-            );
-          })}
-        </div>
+
+              <button
+                type="submit"
+                className="primary-cta-btn"
+                disabled={actionLoading || !newOrgName.trim()}
+                style={{ width: '100%', justifyContent: 'center', padding: '12px 18px', fontSize: '0.92rem' }}
+              >
+                {actionLoading ? (
+                  <>
+                    <RefreshCw size={16} className="spin-animation" />
+                    <span>Creating Workspace...</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus size={16} />
+                    <span>Create Organisation & Open Workspace</span>
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-light)', maxWidth: '420px', margin: '20px auto 0 auto' }}>
+              <button
+                type="button"
+                className="secondary-btn"
+                style={{ width: '100%', justifyContent: 'center', fontSize: '0.84rem' }}
+                onClick={handleQuickJoinDemo}
+              >
+                🚀 Quick Start: Join Demo Organisation (Acme Corp)
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* Organisations List Grid */
+          <div className="org-cards-list">
+            {memberships.map((m) => {
+              const org = m.organisation;
+              const isSuspended = org.status === 'suspended';
+
+              const handleEnter = () => {
+                selectOrganisation(org.id);
+                navigate(`/org/${org.slug}/dashboard`);
+              };
+
+              return (
+                <div
+                  key={org.id}
+                  className={`org-selection-card ${isSuspended ? 'card-suspended' : ''}`}
+                  onClick={handleEnter}
+                >
+                  <div className="org-card-left">
+                    <div
+                      className="org-avatar-box"
+                      style={{ backgroundColor: org.primaryColor || '#3b82f6' }}
+                    >
+                      <Building2 size={20} color="#ffffff" />
+                    </div>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span className="org-card-name">{org.name}</span>
+                        <span className="badge-pill badge-neutral" style={{ textTransform: 'capitalize' }}>
+                          {org.planId.replace('_', ' ')}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                        {renderRoleBadge(m.role)}
+                        {m.jobTitle && <span className="org-card-job">{m.jobTitle}</span>}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="org-card-right">
+                    <button
+                      type="button"
+                      className="org-enter-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEnter();
+                      }}
+                    >
+                      <span>Enter</span>
+                      <ArrowRight size={16} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </AuthLayout>
   );

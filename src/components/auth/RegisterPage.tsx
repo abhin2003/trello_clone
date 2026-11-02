@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { User, Mail, Lock, Eye, EyeOff, UserPlus, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { AuthLayout } from './AuthLayout';
+import { Link } from '../../router/Router';
 
 export const RegisterPage: React.FC = () => {
   const { register, setAuthScreen, authError, setAuthError } = useAuth();
@@ -103,8 +104,8 @@ export const RegisterPage: React.FC = () => {
       footerContent={
         <div className="auth-footer-links">
           <span>Already have an account?</span>
-          <button
-            type="button"
+          <Link
+            to="/login"
             className="auth-link-btn"
             onClick={() => {
               setAuthError(null);
@@ -112,7 +113,7 @@ export const RegisterPage: React.FC = () => {
             }}
           >
             Sign in instead
-          </button>
+          </Link>
         </div>
       }
     >

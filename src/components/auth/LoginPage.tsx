@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
-import { Mail, Lock, Eye, EyeOff, LogIn, AlertCircle, RefreshCw } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, LogIn, AlertCircle, RefreshCw, Sparkles } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { AuthLayout } from './AuthLayout';
+import { useRouter, useNavigate, Link } from '../../router/Router';
+import { isSupabaseAuthEnabled } from '../../lib/supabase';
 
 export const LoginPage: React.FC = () => {
   const { login, setAuthScreen, authError, setAuthError } = useAuth();
+  const { searchParams } = useRouter();
+  const navigate = useNavigate();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -39,7 +43,13 @@ export const LoginPage: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      await login(email, password);
+      const res = await login(email, password);
+      if (res.success) {
+        const redirectParam = searchParams.get('redirect');
+        if (redirectParam) {
+          navigate(redirectParam);
+        }
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -52,8 +62,8 @@ export const LoginPage: React.FC = () => {
       footerContent={
         <div className="auth-footer-links">
           <span>Don't have an account?</span>
-          <button
-            type="button"
+          <Link
+            to="/register"
             className="auth-link-btn"
             onClick={() => {
               setAuthError(null);
@@ -61,11 +71,77 @@ export const LoginPage: React.FC = () => {
             }}
           >
             Create an account
-          </button>
+          </Link>
         </div>
       }
     >
       <form onSubmit={handleSubmit} className="auth-form" noValidate>
+        {/* Fast Testing Mode Notice & 1-Click Presets */}
+        {!isSupabaseAuthEnabled() && (
+          <div style={{
+            background: 'rgba(59, 130, 246, 0.08)',
+            border: '1px solid rgba(59, 130, 246, 0.25)',
+            borderRadius: '10px',
+            padding: '12px 14px',
+            marginBottom: '16px',
+            fontSize: '0.82rem',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: '#60a5fa', marginBottom: '6px' }}>
+              <Sparkles size={15} />
+              <span>Fast Testing Mode (Supabase Auth Paused)</span>
+            </div>
+            <p style={{ margin: '0 0 10px 0', color: 'var(--text-secondary)', lineHeight: 1.4, fontSize: '0.78rem' }}>
+              Enter any credentials to sign in instantly, or click a 1-click test preset below:
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <button
+                type="button"
+                className="secondary-btn"
+                style={{ padding: '6px 10px', fontSize: '0.78rem', justifyContent: 'flex-start', cursor: 'pointer' }}
+                onClick={() => {
+                  setEmail('abhinskrishna3@gmail.com');
+                  setPassword('Password@123');
+                }}
+              >
+                👑 <strong>Owner:</strong> abhinskrishna3@gmail.com
+              </button>
+              <button
+                type="button"
+                className="secondary-btn"
+                style={{ padding: '6px 10px', fontSize: '0.78rem', justifyContent: 'flex-start', cursor: 'pointer' }}
+                onClick={() => {
+                  setEmail('colleague.alex@gmail.com');
+                  setPassword('Password@123');
+                }}
+              >
+                👥 <strong>Colleague:</strong> colleague.alex@gmail.com
+              </button>
+              <button
+                type="button"
+                className="secondary-btn"
+                style={{ padding: '6px 10px', fontSize: '0.78rem', justifyContent: 'flex-start', cursor: 'pointer' }}
+                onClick={() => {
+                  setEmail('newuser.test@gmail.com');
+                  setPassword('Password@123');
+                }}
+              >
+                ✨ <strong>New User (0 Orgs &rarr; Test Onboarding):</strong> newuser.test@gmail.com
+              </button>
+              <button
+                type="button"
+                className="secondary-btn"
+                style={{ padding: '6px 10px', fontSize: '0.78rem', justifyContent: 'flex-start', cursor: 'pointer' }}
+                onClick={() => {
+                  setEmail('admin@stratcrest.com');
+                  setPassword('Password@123');
+                }}
+              >
+                🛡️ <strong>Platform Super-Admin:</strong> admin@stratcrest.com
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Global Error Banner */}
         {authError && (
           <div className="auth-error-banner" role="alert">
@@ -104,8 +180,8 @@ export const LoginPage: React.FC = () => {
             <label className="form-label" htmlFor="login-password">
               Password
             </label>
-            <button
-              type="button"
+            <Link
+              to="/forgot-password"
               className="forgot-link-btn"
               onClick={() => {
                 setAuthError(null);
@@ -113,7 +189,7 @@ export const LoginPage: React.FC = () => {
               }}
             >
               Forgot password?
-            </button>
+            </Link>
           </div>
           <div className="input-with-icon">
             <Lock size={17} className="input-icon" />

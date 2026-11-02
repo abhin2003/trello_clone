@@ -1,4 +1,5 @@
-import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabase';
+import { getSupabaseClient, isSupabaseConfigured, isSupabaseAuthEnabled } from '../lib/supabase';
+import { tenantService } from './tenantService';
 import type { UserProfile, Organisation, UserRole } from '../types/saas';
 import type { Session, User } from '@supabase/supabase-js';
 
@@ -8,11 +9,51 @@ export interface UserOrgMembership {
   jobTitle?: string;
 }
 
+const MOCK_SESSION_STORAGE_KEY = 'stratcrest_mock_user_session_v1';
+
+export const getMockSession = (): Session | null => {
+  if (typeof localStorage === 'undefined') return null;
+  const raw = localStorage.getItem(MOCK_SESSION_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+};
+
+export const saveMockSession = (session: Session | null): void => {
+  if (typeof localStorage === 'undefined') return;
+  if (session) {
+    localStorage.setItem(MOCK_SESSION_STORAGE_KEY, JSON.stringify(session));
+  } else {
+    localStorage.removeItem(MOCK_SESSION_STORAGE_KEY);
+  }
+};
+
 export class AuthService {
   /**
-   * Get active Supabase session
+   * Helper to retrieve mock session from localStorage in bypass mode
+   */
+  getMockSession(): Session | null {
+    return getMockSession();
+  }
+
+  /**
+   * Helper to persist or clear mock session in localStorage
+   */
+  saveMockSession(session: Session | null): void {
+    saveMockSession(session);
+  }
+
+  /**
+   * Get active Supabase session (or mock session when auth is disabled)
    */
   async getSession(): Promise<Session | null> {
+    if (!isSupabaseAuthEnabled()) {
+      return this.getMockSession();
+    }
+
     if (!isSupabaseConfigured()) return null;
     const client = getSupabaseClient();
     const { data, error } = await client.auth.getSession();
@@ -27,6 +68,49 @@ export class AuthService {
    * Log in with Email and Password
    */
   async signIn(email: string, password: string): Promise<{ session: Session | null; user: User | null; error?: string }> {
+    if (!isSupabaseAuthEnabled()) {
+      const cleanEmail = email.trim().toLowerCase();
+      const defaultName = cleanEmail === 'abhinskrishna3@gmail.com'
+        ? 'Abhin Krishna'
+        : cleanEmail.split('@')[0].charAt(0).toUpperCase() + cleanEmail.split('@')[0].slice(1);
+
+      const userId = `user-${cleanEmail.replace(/[^a-z0-9]/g, '-')}`;
+      const isPlatformAdmin = cleanEmail.includes('admin') || cleanEmail.includes('abhin');
+
+      const mockUser: User = {
+        id: userId,
+        app_metadata: {},
+        user_metadata: {
+          full_name: defaultName,
+          is_platform_admin: isPlatformAdmin,
+        },
+        aud: 'authenticated',
+        created_at: new Date().toISOString(),
+        email: cleanEmail,
+      } as any;
+
+      const mockSession: Session = {
+        access_token: 'mock-test-token-' + Date.now(),
+        token_type: 'bearer',
+        expires_in: 3600,
+        refresh_token: 'mock-refresh-token',
+        user: mockUser,
+      } as any;
+
+      this.saveMockSession(mockSession);
+
+      tenantService.setCurrentUser({
+        id: userId,
+        email: cleanEmail,
+        name: defaultName,
+        initials: defaultName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) || 'U',
+        avatarColor: '#3b82f6',
+        isPlatformAdmin,
+      });
+
+      return { session: mockSession, user: mockUser };
+    }
+
     const client = getSupabaseClient();
     const { data, error } = await client.auth.signInWithPassword({
       email: email.trim(),
@@ -48,6 +132,46 @@ export class AuthService {
     email: string,
     password: string
   ): Promise<{ user: User | null; session: Session | null; requiresVerification: boolean; error?: string }> {
+    if (!isSupabaseAuthEnabled()) {
+      const cleanEmail = email.trim().toLowerCase();
+      const cleanName = fullName.trim() || cleanEmail.split('@')[0];
+      const userId = `user-${cleanEmail.replace(/[^a-z0-9]/g, '-')}`;
+      const isPlatformAdmin = cleanEmail.includes('admin');
+
+      const mockUser: User = {
+        id: userId,
+        app_metadata: {},
+        user_metadata: {
+          full_name: cleanName,
+          is_platform_admin: isPlatformAdmin,
+        },
+        aud: 'authenticated',
+        created_at: new Date().toISOString(),
+        email: cleanEmail,
+      } as any;
+
+      const mockSession: Session = {
+        access_token: 'mock-test-token-' + Date.now(),
+        token_type: 'bearer',
+        expires_in: 3600,
+        refresh_token: 'mock-refresh-token',
+        user: mockUser,
+      } as any;
+
+      this.saveMockSession(mockSession);
+
+      tenantService.setCurrentUser({
+        id: userId,
+        email: cleanEmail,
+        name: cleanName,
+        initials: cleanName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) || 'U',
+        avatarColor: '#10b981',
+        isPlatformAdmin,
+      });
+
+      return { user: mockUser, session: mockSession, requiresVerification: false };
+    }
+
     const client = getSupabaseClient();
     const cleanEmail = email.trim().toLowerCase();
     const cleanName = fullName.trim();
@@ -106,6 +230,10 @@ export class AuthService {
    * Send Password Recovery Email
    */
   async sendPasswordResetEmail(email: string): Promise<{ success: boolean; error?: string }> {
+    if (!isSupabaseAuthEnabled()) {
+      return { success: true };
+    }
+
     const client = getSupabaseClient();
     const redirectUrl = typeof window !== 'undefined' ? `${window.location.origin}#type=recovery` : undefined;
 
@@ -124,6 +252,10 @@ export class AuthService {
    * Update Password (for Password Reset flow)
    */
   async updatePassword(newPassword: string): Promise<{ success: boolean; error?: string }> {
+    if (!isSupabaseAuthEnabled()) {
+      return { success: true };
+    }
+
     const client = getSupabaseClient();
     const { error } = await client.auth.updateUser({
       password: newPassword,
@@ -140,6 +272,11 @@ export class AuthService {
    * Sign Out
    */
   async signOut(): Promise<void> {
+    if (!isSupabaseAuthEnabled()) {
+      this.saveMockSession(null);
+      return;
+    }
+
     const client = getSupabaseClient();
     try {
       await client.auth.signOut();
@@ -149,10 +286,9 @@ export class AuthService {
   }
 
   /**
-   * Fetch user profile from database profiles table, with fallback to auth metadata
+   * Fetch user profile
    */
   async fetchUserProfile(user: User): Promise<UserProfile> {
-    const client = getSupabaseClient();
     const defaultName = (user.user_metadata?.full_name as string) || user.email?.split('@')[0] || 'User';
     const initials = defaultName
       .split(' ')
@@ -170,6 +306,11 @@ export class AuthService {
       isPlatformAdmin: Boolean(user.user_metadata?.is_platform_admin),
     };
 
+    if (!isSupabaseAuthEnabled()) {
+      return fallbackProfile;
+    }
+
+    const client = getSupabaseClient();
     try {
       const { data, error } = await client
         .from('profiles')
@@ -195,9 +336,18 @@ export class AuthService {
   }
 
   /**
-   * Fetch all organisations the user belongs to from the database
+   * Fetch all organisations the user belongs to
    */
   async fetchUserOrganisations(userId: string): Promise<UserOrgMembership[]> {
+    if (!isSupabaseAuthEnabled()) {
+      const orgs = tenantService.getUserOrganisations(userId);
+      return orgs.map((o) => ({
+        organisation: o,
+        role: o.userRole,
+        jobTitle: o.userRole === 'owner' ? 'Founder & Owner' : 'Team Member',
+      }));
+    }
+
     const client = getSupabaseClient();
     const results: UserOrgMembership[] = [];
 
@@ -274,7 +424,18 @@ export class AuthService {
   async createOrganisation(
     orgName: string,
     planId: string = 'free_trial'
-  ): Promise<{ success: boolean; organisationId?: string; error?: string }> {
+  ): Promise<{ success: boolean; organisationId?: string; organisation?: Organisation; error?: string }> {
+    if (!isSupabaseAuthEnabled()) {
+      const slug = orgName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+      const newOrg = tenantService.createOrganisationSelfServe({
+        name: orgName.trim(),
+        slug: slug || 'my-org',
+        planId: planId as any,
+        firstWorkspaceName: 'General Workspace',
+      });
+      return { success: true, organisationId: newOrg.id, organisation: newOrg };
+    }
+
     const client = getSupabaseClient();
     const slug = orgName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
 
@@ -343,7 +504,16 @@ export class AuthService {
   /**
    * Claim an invitation token
    */
-  async claimInvitationToken(token: string): Promise<{ success: boolean; organisationId?: string; error?: string }> {
+  async claimInvitationToken(token: string): Promise<{ success: boolean; organisationId?: string; organisation?: Organisation; error?: string }> {
+    if (!isSupabaseAuthEnabled()) {
+      try {
+        const res = tenantService.acceptInvitation(token.trim());
+        return { success: true, organisationId: res.organisationId, organisation: res.organisation };
+      } catch (err: any) {
+        return { success: false, error: err?.message || 'Failed to claim invitation token' };
+      }
+    }
+
     const client = getSupabaseClient();
     const cleanToken = token.trim();
 
@@ -364,6 +534,24 @@ export class AuthService {
     }
 
     return { success: false, error: 'Could not validate invitation token with server.' };
+  }
+
+  /**
+   * Directly join an organisation (e.g. Acme Corp Demo)
+   */
+  async joinOrganisation(
+    orgId: string,
+    role: UserRole = 'member'
+  ): Promise<{ success: boolean; organisation?: Organisation; error?: string }> {
+    if (!isSupabaseAuthEnabled()) {
+      try {
+        const res = tenantService.joinOrganisation(orgId, role);
+        return { success: true, organisation: res.organisation };
+      } catch (err: any) {
+        return { success: false, error: err?.message || 'Failed to join organisation' };
+      }
+    }
+    return { success: false, error: 'Direct joining without invite is not supported with Supabase.' };
   }
 }
 

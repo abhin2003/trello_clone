@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Mail, ArrowLeft, Send, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
 import { AuthLayout } from './AuthLayout';
+import { useAuth } from '../../context/AuthContext';
+import { Link } from '../../router/Router';
 
 export const ForgotPasswordPage: React.FC = () => {
   const { sendPasswordReset, setAuthScreen, authError, setAuthError } = useAuth();
@@ -42,8 +43,8 @@ export const ForgotPasswordPage: React.FC = () => {
       title="Reset Your Password"
       subtitle="Enter your work email address and we will send you secure recovery instructions"
       footerContent={
-        <button
-          type="button"
+        <Link
+          to="/login"
           className="auth-link-btn"
           style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           onClick={() => {
@@ -53,7 +54,7 @@ export const ForgotPasswordPage: React.FC = () => {
         >
           <ArrowLeft size={16} />
           <span>Back to Sign In</span>
-        </button>
+        </Link>
       }
     >
       {isSuccess ? (

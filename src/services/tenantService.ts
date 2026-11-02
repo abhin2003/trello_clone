@@ -570,7 +570,14 @@ class MultiTenantService {
 
   // List user organisations (Strict Isolation: Only orgs user is member of)
   getUserOrganisations(userId: string = this.currentUser.id): (Organisation & { userRole: UserRole })[] {
-    const userMemberOrgs = this.members.filter(m => (m.userId === userId || m.user?.email === this.currentUser.email) && m.isActive);
+    const cleanUserId = userId;
+    const cleanEmail = (this.currentUser.email || '').toLowerCase().trim();
+    const userMemberOrgs = this.members.filter(m => {
+      const mEmail = (m.user?.email || '').toLowerCase().trim();
+      const matchId = m.userId === cleanUserId || (cleanUserId === this.currentUser.id && m.userId === this.currentUser.id);
+      const matchEmail = Boolean(cleanEmail && mEmail === cleanEmail);
+      return (matchId || matchEmail) && m.isActive;
+    });
     return userMemberOrgs
       .map(member => {
         const org = this.organisations.find(o => o.id === member.organisationId);
@@ -722,15 +729,16 @@ class MultiTenantService {
     this.save(SAAS_ORGS_KEY, this.organisations);
 
     // Register current user as Owner
+    const activeUser = this.currentUser || CURRENT_USER;
     const newMember: OrganisationMember = {
       id: uid('om'),
       organisationId: newOrg.id,
-      userId: CURRENT_USER.id,
+      userId: activeUser.id,
       role: 'owner',
       jobTitle: 'Founder & Owner',
       isActive: true,
       joinedAt: new Date().toISOString(),
-      user: CURRENT_USER,
+      user: activeUser,
     };
     this.members.push(newMember);
     this.save(SAAS_MEMBERS_KEY, this.members);
@@ -743,7 +751,7 @@ class MultiTenantService {
       slug: (payload.firstWorkspaceName || 'primary').toLowerCase().replace(/[^a-z0-9-]/g, '-'),
       description: 'Main collaborative workspace',
       visibility: 'organisation',
-      createdBy: CURRENT_USER.id,
+      createdBy: activeUser.id,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -824,8 +832,16 @@ class MultiTenantService {
     return newInvite;
   }
 
+  getOrganisationMembers(orgId: string = this.activeOrgId): OrganisationMember[] {
+    return this.getMembers(orgId);
+  }
+
   getInvitations(orgId: string = this.activeOrgId): OrganisationInvitation[] {
     return this.invitations.filter(i => i.organisationId === orgId && i.status === 'pending');
+  }
+
+  getAllInvitations(): OrganisationInvitation[] {
+    return this.invitations;
   }
 
   revokeInvitation(inviteId: string): void {
@@ -837,7 +853,7 @@ class MultiTenantService {
     }
   }
 
-  acceptInvitation(token: string): { organisationId: string } {
+  acceptInvitation(token: string): { organisationId: string; organisation?: Organisation } {
     const inv = this.invitations.find(i => i.token === token);
     if (!inv) throw new Error('Invalid or expired invitation token');
     if (inv.status !== 'pending') throw new Error(`Invitation is already ${inv.status}`);
@@ -852,15 +868,16 @@ class MultiTenantService {
     this.save(SAAS_INVITES_KEY, this.invitations);
 
     // Add user as member
+    const activeUser = this.currentUser || CURRENT_USER;
     const newMember: OrganisationMember = {
       id: uid('om'),
       organisationId: inv.organisationId,
-      userId: CURRENT_USER.id,
+      userId: activeUser.id,
       role: inv.role,
       jobTitle: 'Team Member',
       isActive: true,
       joinedAt: new Date().toISOString(),
-      user: CURRENT_USER,
+      user: activeUser,
     };
     this.members.push(newMember);
     this.save(SAAS_MEMBERS_KEY, this.members);
@@ -872,7 +889,41 @@ class MultiTenantService {
       role: inv.role,
     });
 
-    return { organisationId: inv.organisationId };
+    const org = this.organisations.find(o => o.id === inv.organisationId);
+    return { organisationId: inv.organisationId, organisation: org };
+  }
+
+  joinOrganisation(orgId: string, role: UserRole = 'member'): { organisation: Organisation; member: OrganisationMember } {
+    const org = this.organisations.find(o => o.id === orgId);
+    if (!org) throw new Error('Organisation not found');
+
+    const user = this.currentUser || CURRENT_USER;
+    const existing = this.members.find(
+      m => m.organisationId === orgId && (m.userId === user.id || (m.user?.email && m.user.email.toLowerCase() === (user.email || '').toLowerCase()))
+    );
+
+    if (existing) {
+      existing.isActive = true;
+      existing.role = role;
+      this.save(SAAS_MEMBERS_KEY, this.members);
+      this.setActiveOrgId(org.id);
+      return { organisation: org, member: existing };
+    }
+
+    const newMember: OrganisationMember = {
+      id: uid('om'),
+      organisationId: orgId,
+      userId: user.id,
+      role: role,
+      jobTitle: role === 'owner' ? 'Founder & Owner' : 'Team Member',
+      isActive: true,
+      joinedAt: new Date().toISOString(),
+      user: user,
+    };
+    this.members.push(newMember);
+    this.save(SAAS_MEMBERS_KEY, this.members);
+    this.setActiveOrgId(org.id);
+    return { organisation: org, member: newMember };
   }
 
   updateMemberRole(orgId: string, memberId: string, newRole: UserRole): void {

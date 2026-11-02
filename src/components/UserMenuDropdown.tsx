@@ -12,17 +12,17 @@ import {
   Crown,
   UserCheck,
 } from 'lucide-react';
+import { useNavigate } from '../router/Router';
 import type { UserRole } from '../types/saas';
 
 export const UserMenuDropdown: React.FC = () => {
-  const { userProfile, user, logout, setAuthScreen } = useAuth();
+  const navigate = useNavigate();
+  const { userProfile, user, logout } = useAuth();
   const {
     activeOrg,
     userRole,
     isAdmin,
     isPlatformAdmin,
-    setIsOrgAdminOpen,
-    setIsPlatformAdminOpen,
     setIsSupabaseModalOpen,
   } = useTenant();
 
@@ -125,7 +125,7 @@ export const UserMenuDropdown: React.FC = () => {
               className="popover-menu-item"
               onClick={() => {
                 setIsOpen(false);
-                setAuthScreen('select_org');
+                navigate('/organizations/select');
               }}
             >
               <Layers size={16} />
@@ -138,7 +138,7 @@ export const UserMenuDropdown: React.FC = () => {
                 className="popover-menu-item"
                 onClick={() => {
                   setIsOpen(false);
-                  setIsOrgAdminOpen(true);
+                  navigate(`/org/${activeOrg.slug || 'acme-corp'}/settings`);
                 }}
               >
                 <Settings size={16} />
@@ -152,7 +152,7 @@ export const UserMenuDropdown: React.FC = () => {
                 className="popover-menu-item platform-admin-item"
                 onClick={() => {
                   setIsOpen(false);
-                  setIsPlatformAdminOpen(true);
+                  navigate('/platform-admin/dashboard');
                 }}
               >
                 <Shield size={16} />

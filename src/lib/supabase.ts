@@ -3,6 +3,17 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 const STORAGE_URL_KEY = 'stratcrest_supabase_url_v1';
 const STORAGE_KEY_KEY = 'stratcrest_supabase_anon_key_v1';
 
+/**
+ * Global toggle to control Supabase Authentication.
+ * Set to FALSE to pause live Supabase Auth and enable instant, friction-free local testing.
+ * Set to TRUE when ready to resume live Supabase Auth.
+ */
+export const SUPABASE_AUTH_ENABLED = false;
+
+export const isSupabaseAuthEnabled = (): boolean => {
+  return SUPABASE_AUTH_ENABLED;
+};
+
 export interface SupabaseConfigState {
   url: string;
   anonKey: string;
