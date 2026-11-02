@@ -18,6 +18,7 @@ export const ChatWindow: React.FC = () => {
     closeChat,
     chatMessages,
     sendChatMessage,
+    broadcastTyping,
     isTyping,
     activeBoard,
   } = useBoard();
@@ -29,6 +30,7 @@ export const ChatWindow: React.FC = () => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const typingTimerRef = useRef<any>(null);
 
   // Resolve member from organisation members, board members, or fallback
   const orgMember = orgMembers.find(
@@ -65,7 +67,14 @@ export const ChatWindow: React.FC = () => {
       }
     : null;
 
-  const messages = activeChatMemberId ? chatMessages[activeChatMemberId] || [] : [];
+  const myId = userProfile?.id || 'usr-owner';
+  const myEmail = (userProfile?.email || '').toLowerCase().trim();
+  const targetId = member?.id || activeChatMemberId || '';
+  const convKey = [myId.toLowerCase(), targetId.toLowerCase()].sort().join('__');
+
+  const messages = activeChatMemberId
+    ? chatMessages[convKey] || chatMessages[targetId] || chatMessages[activeChatMemberId] || []
+    : [];
 
   // Auto-scroll to bottom of chat
   const scrollToBottom = () => {
@@ -83,9 +92,22 @@ export const ChatWindow: React.FC = () => {
 
   const isSelf = member.id === userProfile?.id || (member.email && member.email === userProfile?.email);
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputVal(e.target.value);
+    if (activeChatMemberId) {
+      broadcastTyping?.(activeChatMemberId, true);
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = setTimeout(() => {
+        broadcastTyping?.(activeChatMemberId, false);
+      }, 1400);
+    }
+  };
+
   const handleSend = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!inputVal.trim()) return;
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    broadcastTyping?.(activeChatMemberId, false);
     sendChatMessage(activeChatMemberId, inputVal);
     setInputVal('');
     setShowEmojiPicker(false);
@@ -156,8 +178,23 @@ export const ChatWindow: React.FC = () => {
             </div>
 
             <div className="wa-messages-list">
+              {messages.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-secondary)' }}>
+                  <div style={{ fontSize: '1.8rem', marginBottom: '8px' }}>💬</div>
+                  <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                    Direct Chat with {member.name}
+                  </div>
+                  <p style={{ fontSize: '0.8rem', marginTop: '6px', lineHeight: 1.4 }}>
+                    Say hello to start the conversation! Messages are delivered directly between team members in real time.
+                  </p>
+                </div>
+              )}
+
               {messages.map((msg) => {
-                const isMe = msg.senderId === 'user';
+                const isMe =
+                  msg.senderId === myId ||
+                  msg.senderId === 'user' ||
+                  Boolean(msg.senderEmail && myEmail && msg.senderEmail.toLowerCase().trim() === myEmail);
                 return (
                   <div key={msg.id} className={`wa-bubble-row ${isMe ? 'outgoing' : 'incoming'}`}>
                     <div className={`wa-bubble ${isMe ? 'outgoing' : 'incoming'}`}>
@@ -236,7 +273,7 @@ export const ChatWindow: React.FC = () => {
               className="wa-input"
               placeholder="Type a message..."
               value={inputVal}
-              onChange={(e) => setInputVal(e.target.value)}
+              onChange={handleInputChange}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();

@@ -459,11 +459,15 @@ export class AuthService {
       const { data: userRes } = await client.auth.getUser();
       if (!userRes.user) return { success: false, error: 'User is not authenticated' };
 
+      const rawPrefix = orgName.trim().replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase() || 'ORG';
+      const joinCode = `${rawPrefix}-${Math.floor(1000 + Math.random() * 9000)}`;
+
       const { data: orgData, error: orgErr } = await client
         .from('organisations')
         .insert({
           name: orgName.trim(),
           slug,
+          join_code: joinCode,
           plan_id: planId,
           status: 'active',
         })

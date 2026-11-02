@@ -119,6 +119,7 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Chat state
   const CHAT_STORAGE_KEY = 'stratcrest_flow_chat_messages_v1';
+  const { userProfile } = useAuth();
   const [activeChatMemberId, setActiveChatMemberId] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [chatMessages, setChatMessages] = useState<Record<string, ChatMessage[]>>(() => {
@@ -131,6 +132,13 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return INITIAL_CHATS;
   });
 
+  // Helper to compute unified conversation key between two users
+  const getConversationKey = useCallback((userAId: string, userBId: string) => {
+    const normA = (userAId || '').toLowerCase().trim();
+    const normB = (userBId || '').toLowerCase().trim();
+    return [normA, normB].sort().join('__');
+  }, []);
+
   // Sync chat messages to localStorage
   useEffect(() => {
     try {
@@ -139,6 +147,95 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       console.error('Chat storage write error', e);
     }
   }, [chatMessages]);
+
+  // Real-time pub/sub across open browser tabs & windows
+  useEffect(() => {
+    let bc: BroadcastChannel | null = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        bc = new BroadcastChannel('stratcrest_flow_chat_v1');
+        bc.onmessage = (event) => {
+          const data = event.data;
+          if (!data) return;
+
+          const myId = userProfile?.id || 'usr-owner';
+          const myEmail = userProfile?.email?.toLowerCase().trim();
+
+          if (data.type === 'NEW_MESSAGE' && data.message) {
+            const isForMe =
+              data.recipientId === myId ||
+              (myEmail && data.message.recipientEmail?.toLowerCase().trim() === myEmail) ||
+              data.conversationKey.includes(myId.toLowerCase());
+
+            if (isForMe || data.senderId !== myId) {
+              setChatMessages((prev) => {
+                const convKey = data.conversationKey;
+                const existing = prev[convKey] || [];
+                if (existing.some((m) => m.id === data.message.id)) return prev;
+
+                const incomingMsg: ChatMessage = {
+                  ...data.message,
+                  status: 'delivered',
+                };
+                const updated: Record<string, ChatMessage[]> = {
+                  ...prev,
+                  [convKey]: [...existing, incomingMsg],
+                };
+                if (data.senderId) {
+                  updated[data.senderId as string] = updated[convKey];
+                }
+                return updated;
+              });
+
+              // If currently active chat with this sender, notify read
+              if (activeChatMemberId === data.senderId) {
+                try {
+                  const ackBc = new BroadcastChannel('stratcrest_flow_chat_v1');
+                  ackBc.postMessage({
+                    type: 'MESSAGE_READ',
+                    conversationKey: data.conversationKey,
+                    readerId: myId,
+                  });
+                  ackBc.close();
+                } catch {}
+              }
+            }
+          } else if (data.type === 'MESSAGE_READ' && data.conversationKey) {
+            setChatMessages((prev) => {
+              const convKey = data.conversationKey;
+              const existing = prev[convKey] || [];
+              return {
+                ...prev,
+                [convKey]: existing.map((m) => ({ ...m, status: 'read' })),
+              };
+            });
+          } else if (data.type === 'TYPING_INDICATOR' && data.conversationKey) {
+            if (data.senderId !== myId && (activeChatMemberId === data.senderId || data.recipientId === myId)) {
+              setIsTyping(Boolean(data.isTyping));
+            }
+          }
+        };
+      }
+    } catch (e) {
+      console.warn('Real-time chat broadcast channel initialization notice:', e);
+    }
+
+    // Fallback storage event listener for cross-window sync
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === CHAT_STORAGE_KEY && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          setChatMessages(parsed);
+        } catch {}
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      bc?.close();
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [userProfile, activeChatMemberId]);
 
   // Sync to local storage
   useEffect(() => {
@@ -686,71 +783,77 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!text.trim()) return;
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const msgId = `msg-${Date.now()}`;
+    const msgId = `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+
+    const myId = userProfile?.id || 'usr-owner';
+    const myName = userProfile?.name || 'User';
+    const myEmail = userProfile?.email;
+
+    const convKey = getConversationKey(myId, memberId);
 
     const newMsg: ChatMessage = {
       id: msgId,
-      senderId: 'user',
+      senderId: myId,
+      senderName: myName,
+      senderEmail: myEmail,
+      recipientId: memberId,
       text: text.trim(),
       timestamp: timeStr,
       status: 'sent',
     };
 
-    setChatMessages((prev) => ({
-      ...prev,
-      [memberId]: [...(prev[memberId] || []), newMsg],
-    }));
-
-    // Status updates: sent -> delivered -> read
-    setTimeout(() => {
-      setChatMessages((prev) => ({
+    setChatMessages((prev) => {
+      const existingConv = prev[convKey] || prev[memberId] || [];
+      const updated = {
         ...prev,
-        [memberId]: (prev[memberId] || []).map((m) =>
-          m.id === msgId ? { ...m, status: 'delivered' } : m
-        ),
-      }));
-    }, 450);
+        [convKey]: [...existingConv, newMsg],
+      };
+      if (memberId !== convKey) {
+        updated[memberId] = updated[convKey];
+      }
+      try {
+        localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(updated));
+      } catch (e) {
+        console.error('Chat storage write error', e);
+      }
+      return updated;
+    });
 
-    setTimeout(() => {
-      setChatMessages((prev) => ({
-        ...prev,
-        [memberId]: (prev[memberId] || []).map((m) =>
-          m.id === msgId ? { ...m, status: 'read' } : m
-        ),
-      }));
-    }, 950);
-
-    // Simulate smart team member response if not messaging self
-    if (memberId !== 'mem-1') {
-      setTimeout(() => {
-        setIsTyping(true);
-      }, 1400);
-
-      setTimeout(() => {
-        setIsTyping(false);
-        const replies = MEMBER_REPLIES[memberId] || [
-          "Got your message! I'm on it.",
-          "Sounds good, updating the board now.",
-          "Thanks for the update!",
-        ];
-        const randomReply = replies[Math.floor(Math.random() * replies.length)];
-        const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-        const replyMsg: ChatMessage = {
-          id: `reply-${Date.now()}`,
-          senderId: memberId,
-          text: randomReply,
-          timestamp: replyTime,
-          status: 'read',
-        };
-
-        setChatMessages((prev) => ({
-          ...prev,
-          [memberId]: [...(prev[memberId] || []), replyMsg],
-        }));
-      }, 2800);
+    // Real-time broadcast to all open tabs and windows
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel('stratcrest_flow_chat_v1');
+        bc.postMessage({
+          type: 'NEW_MESSAGE',
+          conversationKey: convKey,
+          recipientId: memberId,
+          senderId: myId,
+          message: newMsg,
+        });
+        bc.close();
+      }
+    } catch (e) {
+      console.warn('Broadcast error', e);
     }
   };
+
+  const broadcastTyping = useCallback((recipientId: string, typing: boolean) => {
+    const myId = userProfile?.id || 'usr-owner';
+    const convKey = getConversationKey(myId, recipientId);
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel('stratcrest_flow_chat_v1');
+        bc.postMessage({
+          type: 'TYPING_INDICATOR',
+          conversationKey: convKey,
+          senderId: myId,
+          recipientId,
+          isTyping: typing,
+        });
+        bc.close();
+      }
+    } catch {}
+  }, [userProfile, getConversationKey]);
 
   return (
     <BoardContext.Provider
@@ -807,6 +910,7 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         chatMessages,
         isTyping,
         sendChatMessage,
+        broadcastTyping,
       }}
     >
       {children}

@@ -147,6 +147,7 @@ export class SupabaseDataService {
           id,
           name: org.name,
           slug: org.slug || org.name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+          join_code: org.joinCode || null,
           logo_url: org.logoUrl || null,
           primary_color: org.primaryColor || '#3b82f6',
           status: org.status || 'active',

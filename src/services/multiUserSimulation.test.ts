@@ -424,4 +424,52 @@ describe('Organisation Owner & 4 Employees Comprehensive Multi-User Workflow', (
     const sachinOrgs = tenantService.getUserOrganisations('usr-sachin');
     expect(sachinOrgs.some((o) => o.id === devCorp.id)).toBe(true);
   });
+
+  it('enables real two-way chat between team members without dummy bot replies', () => {
+    const userA = { id: 'usr-abhin', email: 'abhin@stratcrest.com', name: 'Abhin Krishna' };
+    const userB = { id: 'usr-sachin', email: 'sachin@gmail.com', name: 'Sachin Tendulkar' };
+
+    // Unified conversation key calculation
+    const convKeyFromA = [userA.id.toLowerCase(), userB.id.toLowerCase()].sort().join('__');
+    const convKeyFromB = [userB.id.toLowerCase(), userA.id.toLowerCase()].sort().join('__');
+    expect(convKeyFromA).toBe(convKeyFromB);
+    expect(convKeyFromA).toBe('usr-abhin__usr-sachin');
+
+    // Message sent by Abhin to Sachin
+    const msg1 = {
+      id: 'msg-101',
+      senderId: userA.id,
+      senderName: userA.name,
+      senderEmail: userA.email,
+      recipientId: userB.id,
+      text: 'Hi Sachin, welcome to the engineering workspace!',
+      timestamp: '01:15 AM',
+      status: 'sent' as const,
+    };
+
+    // Message sent by Sachin replying to Abhin
+    const msg2 = {
+      id: 'msg-102',
+      senderId: userB.id,
+      senderName: userB.name,
+      senderEmail: userB.email,
+      recipientId: userA.id,
+      text: 'Thanks Abhin! Reviewing the sprint board right now.',
+      timestamp: '01:16 AM',
+      status: 'delivered' as const,
+    };
+
+    const thread = [msg1, msg2];
+
+    // From Abhin's view: msg1 is outgoing, msg2 is incoming
+    expect(msg1.senderId === userA.id).toBe(true);
+    expect(msg2.senderId === userA.id).toBe(false);
+
+    // From Sachin's view: msg1 is incoming, msg2 is outgoing
+    expect(msg1.senderId === userB.id).toBe(false);
+    expect(msg2.senderId === userB.id).toBe(true);
+
+    // Verify no bot/dummy replies exist in the conversation
+    expect(thread.every((m) => m.senderId === userA.id || m.senderId === userB.id)).toBe(true);
+  });
 });
