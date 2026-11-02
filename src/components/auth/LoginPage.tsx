@@ -7,7 +7,6 @@ import {
   LogIn,
   AlertCircle,
   RefreshCw,
-  Sparkles,
   Building2,
   Users,
   Key,
@@ -20,7 +19,6 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { AuthLayout } from './AuthLayout';
 import { useRouter, useNavigate, Link } from '../../router/Router';
-import { isSupabaseAuthEnabled } from '../../lib/supabase';
 import { tenantService } from '../../services/tenantService';
 
 type LoginTab = 'owner' | 'worker';
@@ -477,35 +475,6 @@ export const LoginPage: React.FC = () => {
             </button>
           </div>
 
-          {/* Quick presets when in local testing mode */}
-          {!isSupabaseAuthEnabled() && ownerMode === 'signin' && (
-            <div
-              style={{
-                background: 'rgba(59, 130, 246, 0.08)',
-                border: '1px solid rgba(59, 130, 246, 0.25)',
-                borderRadius: '10px',
-                padding: '10px 12px',
-                marginBottom: '16px',
-                fontSize: '0.8rem',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: '#60a5fa', marginBottom: '6px' }}>
-                <Sparkles size={14} />
-                <span>Quick Test Owner Preset</span>
-              </div>
-              <button
-                type="button"
-                className="secondary-btn"
-                style={{ width: '100%', padding: '6px 10px', fontSize: '0.78rem', justifyContent: 'flex-start', cursor: 'pointer' }}
-                onClick={() => {
-                  setOwnerEmail('abhinskrishna3@gmail.com');
-                  setOwnerPassword('Password@123');
-                }}
-              >
-                👑 <strong>Owner:</strong> abhinskrishna3@gmail.com (Acme Corp • Join Code: ACME-2026)
-              </button>
-            </div>
-          )}
 
           {ownerMode === 'signin' ? (
             <form onSubmit={handleOwnerSignIn} className="auth-form" noValidate>

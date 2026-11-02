@@ -51,16 +51,16 @@ export const AppRouter: React.FC = () => {
 
   // Helper: compute destination after authentication
   const getAuthenticatedDefaultDestination = (): string => {
-    if (userProfile?.isPlatformAdmin) {
-      return '/platform-admin/dashboard';
-    }
-    if (memberships.length === 0) {
-      return '/onboarding';
-    }
     if (memberships.length === 1) {
       return `/org/${memberships[0].organisation.slug}/dashboard`;
     }
-    return '/organizations/select';
+    if (memberships.length > 1) {
+      return '/organizations/select';
+    }
+    if (userProfile?.isPlatformAdmin) {
+      return '/platform-admin/dashboard';
+    }
+    return '/onboarding';
   };
 
   // Redirect away from login/register if already authenticated & handle direct invite codes

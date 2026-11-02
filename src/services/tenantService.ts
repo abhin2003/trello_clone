@@ -107,7 +107,7 @@ export const CURRENT_USER: UserProfile = {
   name: 'Abhinav Patel',
   initials: 'AP',
   avatarColor: '#3b82f6',
-  isPlatformAdmin: true, // Has Platform Admin privileges
+  isPlatformAdmin: false,
 };
 
 // Seed organisations
