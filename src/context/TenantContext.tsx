@@ -71,7 +71,13 @@ interface TenantContextType {
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
 export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser] = useState<UserProfile>(() => tenantService.getCurrentUser());
+  // Trigger state refresh
+  const [refreshIndex, setRefreshIndex] = useState(0);
+  const refreshTenantState = useCallback(() => {
+    setRefreshIndex(prev => prev + 1);
+  }, []);
+
+  const currentUser = useMemo(() => tenantService.getCurrentUser(), [refreshIndex]);
   const [activeOrgId, setActiveOrgId] = useState<string>(() => tenantService.getActiveOrgId());
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
 
@@ -82,12 +88,6 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
   const [quotaWarning, setQuotaWarning] = useState<string | null>(null);
-
-  // Trigger state refresh
-  const [refreshIndex, setRefreshIndex] = useState(0);
-  const refreshTenantState = useCallback(() => {
-    setRefreshIndex(prev => prev + 1);
-  }, []);
 
   const activeOrg = useMemo(() => {
     return tenantService.getActiveOrganisation();

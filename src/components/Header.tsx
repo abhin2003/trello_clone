@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useBoard } from '../context/BoardContext';
 import { useTenant } from '../context/TenantContext';
 import { OrgSwitcherDropdown } from './OrgSwitcherDropdown';
+import { UserMenuDropdown } from './UserMenuDropdown';
 import {
   Kanban,
   Star,
@@ -42,7 +43,6 @@ export const Header: React.FC = () => {
   } = useBoard();
 
   const {
-    currentUser,
     isAdmin,
     isPlatformAdmin,
     setIsOrgAdminOpen,
@@ -286,14 +286,7 @@ export const Header: React.FC = () => {
           <span>New Board</span>
         </button>
 
-        <div
-          className="header-user-avatar"
-          style={{ backgroundColor: currentUser.avatarColor || '#3b82f6' }}
-          title={`${currentUser.name} (${currentUser.email})`}
-          onClick={() => (isAdmin ? setIsOrgAdminOpen(true) : null)}
-        >
-          {currentUser.initials}
-        </div>
+        <UserMenuDropdown />
       </div>
     </header>
   );

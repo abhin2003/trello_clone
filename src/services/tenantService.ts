@@ -491,6 +491,7 @@ class MultiTenantService {
   private plans: SubscriptionPlan[];
   private supportSessions: SupportAccessSession[];
   private activeOrgId: string;
+  private currentUser: UserProfile = CURRENT_USER;
 
   constructor() {
     this.organisations = this.load(SAAS_ORGS_KEY, INITIAL_ORGS);
@@ -535,8 +536,12 @@ class MultiTenantService {
   }
 
   // Active User
+  setCurrentUser(profile: UserProfile): void {
+    this.currentUser = profile;
+  }
+
   getCurrentUser(): UserProfile {
-    return CURRENT_USER;
+    return this.currentUser;
   }
 
   // Active Organisation State
@@ -544,9 +549,10 @@ class MultiTenantService {
     return this.activeOrgId;
   }
 
-  setActiveOrgId(orgId: string): void {
-    if (!this.organisations.some(o => o.id === orgId)) {
-      throw new Error(`Organisation not found: ${orgId}`);
+  setActiveOrgId(orgId: string, orgObj?: Organisation): void {
+    if (orgObj && !this.organisations.some(o => o.id === orgId)) {
+      this.organisations.push(orgObj);
+      this.save(SAAS_ORGS_KEY, this.organisations);
     }
     this.activeOrgId = orgId;
     if (typeof localStorage !== 'undefined') {
@@ -563,8 +569,8 @@ class MultiTenantService {
   }
 
   // List user organisations (Strict Isolation: Only orgs user is member of)
-  getUserOrganisations(userId: string = CURRENT_USER.id): (Organisation & { userRole: UserRole })[] {
-    const userMemberOrgs = this.members.filter(m => m.userId === userId && m.isActive);
+  getUserOrganisations(userId: string = this.currentUser.id): (Organisation & { userRole: UserRole })[] {
+    const userMemberOrgs = this.members.filter(m => (m.userId === userId || m.user?.email === this.currentUser.email) && m.isActive);
     return userMemberOrgs
       .map(member => {
         const org = this.organisations.find(o => o.id === member.organisationId);
@@ -580,7 +586,7 @@ class MultiTenantService {
   // Current User's Role in Active Org
   getCurrentUserRole(orgId: string = this.activeOrgId): UserRole | null {
     const m = this.members.find(
-      mem => mem.organisationId === orgId && mem.userId === CURRENT_USER.id && mem.isActive
+      mem => mem.organisationId === orgId && (mem.userId === this.currentUser.id || mem.user?.email === this.currentUser.email) && mem.isActive
     );
     return m ? m.role : null;
   }
