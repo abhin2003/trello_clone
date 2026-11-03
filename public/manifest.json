@@ -1,0 +1,66 @@
+{
+  "name": "Drello - Modern Collaborative Workspaces",
+  "short_name": "Drello",
+  "description": "High-performance collaborative Kanban boards, team workspaces, real-time messaging, and multi-tenant management.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f172a",
+  "theme_color": "#1e293b",
+  "categories": [
+    "productivity",
+    "utilities",
+    "business"
+  ],
+  "icons": [
+    {
+      "src": "/drello-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/drello-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/drello-icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Boards",
+      "short_name": "Boards",
+      "description": "View and manage all Kanban boards",
+      "url": "/org/stratcrest/boards",
+      "icons": [
+        {
+          "src": "/drello-icon.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Members & Teams",
+      "short_name": "Members",
+      "description": "Manage employees, collaborators and join codes",
+      "url": "/org/stratcrest/members",
+      "icons": [
+        {
+          "src": "/drello-icon.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}

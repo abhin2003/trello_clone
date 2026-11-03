@@ -241,7 +241,7 @@ export const Header: React.FC = () => {
               <span>Theme</span>
             </button>
 
-            <div className="action-group">
+            <div className="action-group hide-on-mobile">
               <button
                 className="icon-button"
                 onClick={exportBoardJSON}
@@ -271,7 +271,7 @@ export const Header: React.FC = () => {
         )}
 
         <button
-          className="icon-button"
+          className="icon-button hide-on-mobile"
           onClick={() => setIsShortcutsOpen(true)}
           title="Keyboard Shortcuts (?)"
           aria-label="Keyboard shortcuts"
@@ -290,7 +290,7 @@ export const Header: React.FC = () => {
 
         {isAdmin && (
           <button
-            className="icon-button"
+            className="icon-button hide-on-mobile"
             onClick={() => setIsOrgAdminOpen(true)}
             title="Organisation Settings & Administration"
             aria-label="Organisation Settings"
@@ -301,7 +301,7 @@ export const Header: React.FC = () => {
 
         {isPlatformAdmin && (
           <button
-            className="icon-button platform-admin-badge-btn"
+            className="icon-button platform-admin-badge-btn hide-on-mobile"
             onClick={() => setIsPlatformAdminOpen(true)}
             title="Platform Super-Administrator Portal"
             aria-label="Platform Super-Admin"
@@ -312,7 +312,7 @@ export const Header: React.FC = () => {
 
         {/* Organisation Join Code Button */}
         <button
-          className="action-pill-btn"
+          className="action-pill-btn header-join-code-btn"
           onClick={() => setIsJoinCodeModalOpen(true)}
           title={`Organisation Join Code: ${orgJoinCode || activeOrg?.joinCode || ''}. Click to view or invite workers.`}
           style={{
@@ -323,15 +323,17 @@ export const Header: React.FC = () => {
           }}
         >
           <Key size={14} />
-          <span>Code: {orgJoinCode || activeOrg?.joinCode || 'ORG'}</span>
+          <span className="join-code-full-text">Code: {orgJoinCode || activeOrg?.joinCode || 'ORG'}</span>
+          <span className="join-code-short-text">{orgJoinCode || activeOrg?.joinCode || 'CODE'}</span>
         </button>
 
         <button
-          className="primary-cta-btn"
+          className="primary-cta-btn header-new-board-btn"
           onClick={() => setIsNewBoardOpen(true)}
+          title="Create New Board"
         >
           <Plus size={16} />
-          <span>New Board</span>
+          <span className="hide-on-mobile">New Board</span>
         </button>
 
         <UserMenuDropdown />

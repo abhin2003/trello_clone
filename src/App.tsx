@@ -40,6 +40,8 @@ import { NotFoundPage } from './components/errors/NotFoundPage';
 import { AccessDeniedPage } from './components/errors/AccessDeniedPage';
 import { ServerErrorPage } from './components/errors/ServerErrorPage';
 
+import { PwaInstallBanner } from './components/PwaInstallBanner';
+
 import { RefreshCw } from 'lucide-react';
 
 export const AppRouter: React.FC = () => {
@@ -346,6 +348,7 @@ export default function App() {
         <TenantProvider>
           <BoardProvider>
             <AppRouter />
+            <PwaInstallBanner />
           </BoardProvider>
         </TenantProvider>
       </AuthProvider>

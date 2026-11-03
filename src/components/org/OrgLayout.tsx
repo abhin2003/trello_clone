@@ -27,6 +27,7 @@ import { NewBoardModal } from '../NewBoardModal';
 import { BackgroundPickerModal } from '../BackgroundPickerModal';
 import { ShortcutsModal } from '../ShortcutsModal';
 import { ChatWindow } from '../ChatWindow';
+import { MobileBottomNav } from '../MobileBottomNav';
 
 interface OrgLayoutProps {
   children: React.ReactNode;
@@ -204,6 +205,9 @@ export const OrgLayout: React.FC<OrgLayoutProps> = ({ children, activeNav = 'das
       <BackgroundPickerModal />
       <ShortcutsModal />
       <ChatWindow />
+
+      {/* Mobile Experience */}
+      <MobileBottomNav />
     </div>
   );
 };
