@@ -12,6 +12,7 @@ import {
   MessageSquare,
   Building2,
   UserPlus,
+  Edit3,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -20,12 +21,13 @@ export const Sidebar: React.FC = () => {
     boards,
     activeBoardId,
     setActiveBoardId,
-    deleteBoard,
     toggleStarBoard,
     isSidebarOpen,
     setIsSidebarOpen,
     setIsNewBoardOpen,
     openChat,
+    setBoardToRename,
+    setBoardToDelete,
   } = useBoard();
 
   const {
@@ -140,25 +142,33 @@ export const Sidebar: React.FC = () => {
 
                   <div className="board-actions" onClick={(e) => e.stopPropagation()}>
                     <button
+                      className="star-subtle"
+                      onClick={() => {
+                        setIsSidebarOpen(false);
+                        setBoardToRename(board);
+                      }}
+                      title="Rename board"
+                    >
+                      <Edit3 size={13} />
+                    </button>
+                    <button
+                      className="delete-subtle"
+                      onClick={() => {
+                        setIsSidebarOpen(false);
+                        setBoardToDelete(board);
+                      }}
+                      title="Delete board"
+                      style={{ color: '#ef4444' }}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                    <button
                       className={`star-subtle ${board.isStarred ? 'starred' : ''}`}
                       onClick={() => toggleStarBoard(board.id)}
                       title="Star board"
                     >
                       <Star size={14} />
                     </button>
-                    {boards.length > 1 && (
-                      <button
-                        className="delete-subtle"
-                        onClick={() => {
-                          if (confirm(`Are you sure you want to delete board "${board.title}"?`)) {
-                            deleteBoard(board.id);
-                          }
-                        }}
-                        title="Delete board"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    )}
                   </div>
                 </div>
               ))}

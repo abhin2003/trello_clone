@@ -11,6 +11,8 @@ import {
   Activity,
   Calendar,
   Star,
+  Edit3,
+  Trash2,
 } from 'lucide-react';
 import { OrgLayout } from './OrgLayout';
 import { useBoard } from '../../context/BoardContext';
@@ -20,7 +22,13 @@ import { Link, useNavigate } from '../../router/Router';
 
 export const OrgDashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const { boards, setActiveBoardId, setIsNewBoardOpen } = useBoard();
+  const {
+    boards,
+    setActiveBoardId,
+    setIsNewBoardOpen,
+    setBoardToRename,
+    setBoardToDelete,
+  } = useBoard();
   const { activeOrg, members, workspaces, auditLogs, setIsOrgAdminOpen, setIsCreateWorkspaceOpen, setIsJoinCodeModalOpen } = useTenant();
   const { userProfile } = useAuth();
 
@@ -169,7 +177,53 @@ export const OrgDashboardPage: React.FC = () => {
                   >
                     <div className="dash-board-card-inner">
                       <span className="dash-board-title">{board.title}</span>
-                      {board.isStarred && <Star size={14} fill="#f59e0b" color="#f59e0b" />}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <button
+                          type="button"
+                          className="board-action-icon-btn"
+                          title="Rename Board"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setBoardToRename(board);
+                          }}
+                          style={{
+                            background: 'rgba(0, 0, 0, 0.3)',
+                            border: 'none',
+                            borderRadius: '6px',
+                            color: '#fff',
+                            padding: '4px',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Edit3 size={12} />
+                        </button>
+                        <button
+                          type="button"
+                          className="board-action-icon-btn"
+                          title="Delete Board"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setBoardToDelete(board);
+                          }}
+                          style={{
+                            background: 'rgba(0, 0, 0, 0.3)',
+                            border: 'none',
+                            borderRadius: '6px',
+                            color: '#f87171',
+                            padding: '4px',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                        {board.isStarred && <Star size={14} fill="#f59e0b" color="#f59e0b" />}
+                      </div>
                     </div>
                   </div>
                 ))}

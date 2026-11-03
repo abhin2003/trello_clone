@@ -21,6 +21,8 @@ import {
   Settings,
   Shield,
   Key,
+  Trash2,
+  Edit3,
 } from 'lucide-react';
 
 export const Header: React.FC = () => {
@@ -40,6 +42,8 @@ export const Header: React.FC = () => {
     setIsBgPickerOpen,
     exportBoardJSON,
     importBoardJSON,
+    setBoardToRename,
+    setBoardToDelete,
   } = useBoard();
 
   const {
@@ -147,22 +151,63 @@ export const Header: React.FC = () => {
                   <div className="dropdown-header">Switch Board</div>
                   <div className="dropdown-list">
                     {boards.map((b) => (
-                      <button
+                      <div
                         key={b.id}
-                        className={`dropdown-item ${b.id === activeBoard.id ? 'active' : ''}`}
-                        onClick={() => {
-                          setActiveBoardId(b.id);
-                          setIsBoardDropdownOpen(false);
-                          navigate(`/org/${orgSlug}/boards/${b.id}`);
+                        className={`dropdown-board-row ${b.id === activeBoard.id ? 'active' : ''}`}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '2px 4px',
+                          borderRadius: '6px',
                         }}
                       >
-                        <div
-                          className="board-mini-thumb"
-                          style={{ background: b.background.value }}
-                        />
-                        <span className="dropdown-item-label">{b.title}</span>
-                        {b.isStarred && <Star size={14} className="star-icon filled" />}
-                      </button>
+                        <button
+                          type="button"
+                          className="dropdown-item"
+                          style={{ flex: 1, minWidth: 0, padding: '6px 8px' }}
+                          onClick={() => {
+                            setActiveBoardId(b.id);
+                            setIsBoardDropdownOpen(false);
+                            navigate(`/org/${orgSlug}/boards/${b.id}`);
+                          }}
+                        >
+                          <div
+                            className="board-mini-thumb"
+                            style={{ background: b.background.value }}
+                          />
+                          <span className="dropdown-item-label">{b.title}</span>
+                          {b.isStarred && <Star size={14} className="star-icon filled" />}
+                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '2px', paddingRight: '4px' }}>
+                          <button
+                            type="button"
+                            className="icon-button"
+                            title="Rename Board"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setIsBoardDropdownOpen(false);
+                              setBoardToRename(b);
+                            }}
+                            style={{ width: '26px', height: '26px', padding: '4px' }}
+                          >
+                            <Edit3 size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            className="icon-button"
+                            title="Delete Board"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setIsBoardDropdownOpen(false);
+                              setBoardToDelete(b);
+                            }}
+                            style={{ width: '26px', height: '26px', padding: '4px', color: '#ef4444' }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
                     ))}
                   </div>
                   <div className="dropdown-divider" />
@@ -180,6 +225,18 @@ export const Header: React.FC = () => {
               )}
             </div>
 
+            {/* Rename Active Board Button */}
+            <button
+              type="button"
+              className="icon-button"
+              onClick={() => setBoardToRename(activeBoard)}
+              title={`Rename board "${activeBoard.title}"`}
+              aria-label="Rename board"
+            >
+              <Edit3 size={16} />
+            </button>
+
+            {/* Star Active Board Button */}
             <button
               className={`star-btn ${activeBoard.isStarred ? 'starred' : ''}`}
               onClick={() => toggleStarBoard(activeBoard.id)}
@@ -187,6 +244,18 @@ export const Header: React.FC = () => {
               aria-label="Star board"
             >
               <Star size={18} />
+            </button>
+
+            {/* Delete Active Board Button */}
+            <button
+              type="button"
+              className="icon-button delete-board-btn"
+              onClick={() => setBoardToDelete(activeBoard)}
+              title={`Delete board "${activeBoard.title}"`}
+              aria-label="Delete board"
+              style={{ color: '#ef4444' }}
+            >
+              <Trash2 size={16} />
             </button>
           </>
         )}

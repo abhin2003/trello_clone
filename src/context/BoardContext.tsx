@@ -25,11 +25,18 @@ interface BoardContextType {
   setActiveBoardId: (id: string) => void;
   createBoard: (title: string, background: BoardBackground, description?: string, workspaceId?: string) => string;
   updateBoard: (boardId: string, updates: Partial<Board>) => void;
+  renameBoard: (boardId: string, newTitle: string) => void;
   deleteBoard: (boardId: string) => void;
   toggleStarBoard: (boardId: string) => void;
   setBoardBackground: (background: BoardBackground) => void;
   exportBoardJSON: () => void;
   importBoardJSON: (jsonString: string) => boolean;
+
+  // Global Board Action Modals
+  boardToRename: Board | null;
+  setBoardToRename: (board: Board | null) => void;
+  boardToDelete: Board | null;
+  setBoardToDelete: (board: Board | null) => void;
 
   // List operations
   addList: (title: string) => void;
@@ -116,6 +123,10 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isNewBoardOpen, setIsNewBoardOpen] = useState(false);
   const [isBgPickerOpen, setIsBgPickerOpen] = useState(false);
+
+  // Global Rename & Delete Board State
+  const [boardToRename, setBoardToRename] = useState<Board | null>(null);
+  const [boardToDelete, setBoardToDelete] = useState<Board | null>(null);
 
   // Chat state
   const CHAT_STORAGE_KEY = 'stratcrest_flow_chat_messages_v1';
@@ -385,15 +396,36 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
   };
 
+  const renameBoard = (boardId: string, newTitle: string) => {
+    const trimmed = newTitle.trim();
+    if (!trimmed) return;
+    updateBoard(boardId, { title: trimmed });
+  };
+
   const deleteBoard = (boardId: string) => {
-    if (boards.length <= 1) {
-      alert('You cannot delete the only remaining board.');
-      return;
-    }
     const remaining = boards.filter((b) => b.id !== boardId);
-    setBoards(remaining);
-    if (activeBoardId === boardId) {
-      setActiveBoardId(remaining[0].id);
+    if (remaining.length === 0) {
+      const newId = `board-${Date.now()}`;
+      const fallbackBoard: Board = {
+        id: newId,
+        title: 'Main Board',
+        description: 'Default collaborative board',
+        isStarred: false,
+        background: { type: 'color', value: '#1e293b', preview: '#1e293b' },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        lists: [],
+        cards: {},
+        labels: DEFAULT_LABELS,
+        members: [],
+      };
+      setBoards([fallbackBoard]);
+      setActiveBoardId(newId);
+    } else {
+      setBoards(remaining);
+      if (activeBoardId === boardId) {
+        setActiveBoardId(remaining[0].id);
+      }
     }
   };
 
@@ -872,7 +904,12 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setActiveBoardId,
         createBoard,
         updateBoard,
+        renameBoard,
         deleteBoard,
+        boardToRename,
+        setBoardToRename,
+        boardToDelete,
+        setBoardToDelete,
         toggleStarBoard,
         setBoardBackground,
         exportBoardJSON,

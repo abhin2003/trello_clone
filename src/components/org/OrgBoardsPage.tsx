@@ -8,6 +8,8 @@ import {
   Lock,
   FolderKanban,
   ArrowLeft,
+  Trash2,
+  Edit3,
 } from 'lucide-react';
 import { OrgLayout } from './OrgLayout';
 import { useBoard } from '../../context/BoardContext';
@@ -17,7 +19,14 @@ import { useNavigate, useRouter } from '../../router/Router';
 export const OrgBoardsPage: React.FC = () => {
   const navigate = useNavigate();
   const { searchParams } = useRouter();
-  const { boards, setActiveBoardId, setIsNewBoardOpen, toggleStarBoard } = useBoard();
+  const {
+    boards,
+    setActiveBoardId,
+    setIsNewBoardOpen,
+    toggleStarBoard,
+    setBoardToRename,
+    setBoardToDelete,
+  } = useBoard();
   const { activeOrg, workspaces, activeWorkspaceId, setActiveWorkspaceId } = useTenant();
 
   const workspaceParam = searchParams.get('workspace');
@@ -251,16 +260,62 @@ export const OrgBoardsPage: React.FC = () => {
                     >
                       <div className="board-tile-header">
                         <span className="board-tile-title">{b.title}</span>
-                        <button
-                          type="button"
-                          className="star-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleStarBoard(b.id);
-                          }}
-                        >
-                          <Star size={16} fill="#f59e0b" color="#f59e0b" />
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <button
+                            type="button"
+                            className="board-action-icon-btn"
+                            title="Rename Board"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setBoardToRename(b);
+                            }}
+                            style={{
+                              background: 'rgba(0, 0, 0, 0.3)',
+                              border: 'none',
+                              borderRadius: '6px',
+                              color: '#fff',
+                              padding: '5px',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            <Edit3 size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            className="board-action-icon-btn"
+                            title="Delete Board"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setBoardToDelete(b);
+                            }}
+                            style={{
+                              background: 'rgba(239, 68, 68, 0.4)',
+                              border: 'none',
+                              borderRadius: '6px',
+                              color: '#fee2e2',
+                              padding: '5px',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            className="star-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleStarBoard(b.id);
+                            }}
+                          >
+                            <Star size={16} fill="#f59e0b" color="#f59e0b" />
+                          </button>
+                        </div>
                       </div>
                       <div className="board-tile-footer">
                         <span>{b.lists?.length || 0} Lists</span>
@@ -295,16 +350,62 @@ export const OrgBoardsPage: React.FC = () => {
                   >
                     <div className="board-tile-header">
                       <span className="board-tile-title">{b.title}</span>
-                      <button
-                        type="button"
-                        className="star-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleStarBoard(b.id);
-                        }}
-                      >
-                        <Star size={16} color="rgba(255,255,255,0.7)" />
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <button
+                          type="button"
+                          className="board-action-icon-btn"
+                          title="Rename Board"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setBoardToRename(b);
+                          }}
+                          style={{
+                            background: 'rgba(0, 0, 0, 0.3)',
+                            border: 'none',
+                            borderRadius: '6px',
+                            color: '#fff',
+                            padding: '5px',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Edit3 size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          className="board-action-icon-btn"
+                          title="Delete Board"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setBoardToDelete(b);
+                          }}
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.4)',
+                            border: 'none',
+                            borderRadius: '6px',
+                            color: '#fee2e2',
+                            padding: '5px',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          className="star-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleStarBoard(b.id);
+                          }}
+                        >
+                          <Star size={16} color="rgba(255,255,255,0.7)" />
+                        </button>
+                      </div>
                     </div>
                     <div className="board-tile-footer">
                       <span>{b.lists?.length || 0} Lists</span>

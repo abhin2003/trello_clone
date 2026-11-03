@@ -41,6 +41,7 @@ import { AccessDeniedPage } from './components/errors/AccessDeniedPage';
 import { ServerErrorPage } from './components/errors/ServerErrorPage';
 
 import { PwaInstallBanner } from './components/PwaInstallBanner';
+import { BoardActionModals } from './components/BoardActionModals';
 
 import { RefreshCw } from 'lucide-react';
 
@@ -349,6 +350,7 @@ export default function App() {
           <BoardProvider>
             <AppRouter />
             <PwaInstallBanner />
+            <BoardActionModals />
           </BoardProvider>
         </TenantProvider>
       </AuthProvider>
