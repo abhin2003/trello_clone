@@ -107,6 +107,49 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [authActiveOrg, activeOrgId]);
 
+  // Real-time multi-tab & window synchronization
+  useEffect(() => {
+    let syncChannel: BroadcastChannel | null = null;
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        syncChannel = new BroadcastChannel('drello_tenant_sync_v1');
+        syncChannel.onmessage = () => {
+          refreshTenantState();
+        };
+      } catch {
+        // ignore
+      }
+    }
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (
+        e.key === 'stratcrest_saas_members_v1' ||
+        e.key === 'stratcrest_saas_organisations_v1' ||
+        e.key === 'stratcrest_saas_workspaces_v1'
+      ) {
+        refreshTenantState();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    const handleWindowFocus = () => {
+      refreshTenantState();
+    };
+    window.addEventListener('focus', handleWindowFocus);
+
+    // Periodic freshness sync to catch background cross-window updates
+    const syncInterval = setInterval(() => {
+      refreshTenantState();
+    }, 2500);
+
+    return () => {
+      if (syncChannel) syncChannel.close();
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', handleWindowFocus);
+      clearInterval(syncInterval);
+    };
+  }, [refreshTenantState]);
+
   // Modals state
   const [isOrgAdminOpen, setIsOrgAdminOpen] = useState(false);
   const [isPlatformAdminOpen, setIsPlatformAdminOpen] = useState(false);

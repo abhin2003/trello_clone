@@ -251,79 +251,69 @@ DROP POLICY IF EXISTS "Anyone can view subscription plans" ON public.subscriptio
 CREATE POLICY "Anyone can view subscription plans" ON public.subscription_plans FOR SELECT USING (true);
 
 -- Profiles policies
-DROP POLICY IF EXISTS "Profiles are readable by authenticated users" ON public.profiles;
-CREATE POLICY "Profiles are readable by authenticated users" ON public.profiles FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Profiles are readable by everyone" ON public.profiles;
+CREATE POLICY "Profiles are readable by everyone" ON public.profiles FOR SELECT USING (true);
 
-DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
-CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE TO authenticated USING (auth.uid() = id);
+DROP POLICY IF EXISTS "Profiles are writable by everyone" ON public.profiles;
+CREATE POLICY "Profiles are writable by everyone" ON public.profiles FOR ALL USING (true);
 
-DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
-CREATE POLICY "Users can insert own profile" ON public.profiles FOR INSERT TO authenticated WITH CHECK (auth.uid() = id);
-
--- Organisations policies
+-- Organisations policies (accessible by both anon & authenticated users)
+DROP POLICY IF EXISTS "Organisations readable by all" ON public.organisations;
 DROP POLICY IF EXISTS "Organisations readable by members or with join code" ON public.organisations;
-CREATE POLICY "Organisations readable by members or with join code" ON public.organisations FOR SELECT TO authenticated
-USING (
-    EXISTS (SELECT 1 FROM public.organisation_members om WHERE om.organisation_id = organisations.id AND om.user_id = auth.uid() AND om.is_active = true)
-    OR join_code IS NOT NULL
-);
+CREATE POLICY "Organisations readable by all" ON public.organisations FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Organisations insertable by all" ON public.organisations;
 DROP POLICY IF EXISTS "Authenticated users can create organisation" ON public.organisations;
-CREATE POLICY "Authenticated users can create organisation" ON public.organisations FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "Organisations insertable by all" ON public.organisations FOR INSERT WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Organisations updatable by all" ON public.organisations;
 DROP POLICY IF EXISTS "Owners/Admins can update organisation" ON public.organisations;
-CREATE POLICY "Owners/Admins can update organisation" ON public.organisations FOR UPDATE TO authenticated
-USING (
-    EXISTS (SELECT 1 FROM public.organisation_members om WHERE om.organisation_id = organisations.id AND om.user_id = auth.uid() AND om.role IN ('owner', 'admin'))
-);
+CREATE POLICY "Organisations updatable by all" ON public.organisations FOR UPDATE USING (true);
 
--- Organisation Members policies
+-- Organisation Members policies (accessible by both anon & authenticated users)
 DROP POLICY IF EXISTS "Members can view membership" ON public.organisation_members;
-CREATE POLICY "Members can view membership" ON public.organisation_members FOR SELECT TO authenticated
-USING (
-    user_id = auth.uid()
-    OR EXISTS (SELECT 1 FROM public.organisation_members om WHERE om.organisation_id = organisation_members.organisation_id AND om.user_id = auth.uid())
-);
+DROP POLICY IF EXISTS "Members readable by all" ON public.organisation_members;
+CREATE POLICY "Members readable by all" ON public.organisation_members FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS "Users can insert membership" ON public.organisation_members;
-CREATE POLICY "Users can insert membership" ON public.organisation_members FOR INSERT TO authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "Members insertable by all" ON public.organisation_members;
+CREATE POLICY "Members insertable by all" ON public.organisation_members FOR INSERT WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Admins can update membership" ON public.organisation_members;
-CREATE POLICY "Admins can update membership" ON public.organisation_members FOR UPDATE TO authenticated
-USING (
-    EXISTS (SELECT 1 FROM public.organisation_members om WHERE om.organisation_id = organisation_members.organisation_id AND om.user_id = auth.uid() AND om.role IN ('owner', 'admin'))
-);
+DROP POLICY IF EXISTS "Members updatable by all" ON public.organisation_members;
+CREATE POLICY "Members updatable by all" ON public.organisation_members FOR UPDATE USING (true);
 
--- Workspaces, Boards, Lists, Cards policies (accessible by organisation members)
+DROP POLICY IF EXISTS "Members deletable by all" ON public.organisation_members;
+CREATE POLICY "Members deletable by all" ON public.organisation_members FOR DELETE USING (true);
+
+-- Workspaces, Boards, Lists, Cards policies (accessible by both anon & authenticated users)
 DROP POLICY IF EXISTS "Workspace access by org members" ON public.workspaces;
-CREATE POLICY "Workspace access by org members" ON public.workspaces FOR ALL TO authenticated
-USING (EXISTS (SELECT 1 FROM public.organisation_members om WHERE om.organisation_id = workspaces.organisation_id AND om.user_id = auth.uid()));
+DROP POLICY IF EXISTS "Workspace access by all" ON public.workspaces;
+CREATE POLICY "Workspace access by all" ON public.workspaces FOR ALL USING (true);
 
 DROP POLICY IF EXISTS "Board access by org members" ON public.boards;
-CREATE POLICY "Board access by org members" ON public.boards FOR ALL TO authenticated
-USING (EXISTS (SELECT 1 FROM public.organisation_members om WHERE om.organisation_id = boards.organisation_id AND om.user_id = auth.uid()));
+DROP POLICY IF EXISTS "Board access by all" ON public.boards;
+CREATE POLICY "Board access by all" ON public.boards FOR ALL USING (true);
 
 DROP POLICY IF EXISTS "List access via board" ON public.lists;
-CREATE POLICY "List access via board" ON public.lists FOR ALL TO authenticated
-USING (EXISTS (SELECT 1 FROM public.boards b JOIN public.organisation_members om ON om.organisation_id = b.organisation_id WHERE b.id = lists.board_id AND om.user_id = auth.uid()));
+DROP POLICY IF EXISTS "List access by all" ON public.lists;
+CREATE POLICY "List access by all" ON public.lists FOR ALL USING (true);
 
 DROP POLICY IF EXISTS "Card access via list" ON public.cards;
-CREATE POLICY "Card access via list" ON public.cards FOR ALL TO authenticated
-USING (EXISTS (SELECT 1 FROM public.lists l JOIN public.boards b ON b.id = l.board_id JOIN public.organisation_members om ON om.organisation_id = b.organisation_id WHERE l.id = cards.list_id AND om.user_id = auth.uid()));
+DROP POLICY IF EXISTS "Card access by all" ON public.cards;
+CREATE POLICY "Card access by all" ON public.cards FOR ALL USING (true);
 
 -- Chat Messages policies
 DROP POLICY IF EXISTS "Chat message access" ON public.chat_messages;
-CREATE POLICY "Chat message access" ON public.chat_messages FOR ALL TO authenticated
-USING (sender_id = auth.uid() OR recipient_id = auth.uid() OR conversation_key LIKE '%' || auth.uid()::text || '%');
+DROP POLICY IF EXISTS "Chat message access by all" ON public.chat_messages;
+CREATE POLICY "Chat message access by all" ON public.chat_messages FOR ALL USING (true);
 
 -- Invitations policies
 DROP POLICY IF EXISTS "Invitations viewable by token or org members" ON public.organisation_invitations;
-CREATE POLICY "Invitations viewable by token or org members" ON public.organisation_invitations FOR SELECT TO authenticated
-USING (true);
+DROP POLICY IF EXISTS "Invitations access by all" ON public.organisation_invitations;
+CREATE POLICY "Invitations access by all" ON public.organisation_invitations FOR ALL USING (true);
 
 DROP POLICY IF EXISTS "Invitations manage by org admins" ON public.organisation_invitations;
-CREATE POLICY "Invitations manage by org admins" ON public.organisation_invitations FOR ALL TO authenticated
-USING (EXISTS (SELECT 1 FROM public.organisation_members om WHERE om.organisation_id = organisation_invitations.organisation_id AND om.user_id = auth.uid() AND om.role IN ('owner', 'admin')));
 
 -- ============================================================================
 -- 14. Enable Supabase Realtime Publication

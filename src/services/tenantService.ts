@@ -144,16 +144,16 @@ const INITIAL_ORGS: Organisation[] = [
   },
   {
     id: 'org-stratcrest',
-    name: 'Drello Global Labs',
-    slug: 'drello-labs',
-    joinCode: 'STRAT-2026',
+    name: 'Stratcrest',
+    slug: 'stratcrest',
+    joinCode: 'STRA-7678',
     logoUrl: '',
-    primaryColor: '#8b5cf6',
+    primaryColor: '#3b82f6',
     status: 'active',
     planId: 'enterprise',
     usedStorageBytes: 1450000000,
     allowedEmailDomain: 'stratcrest.com',
-    enforceAdminInvitesOnly: true,
+    enforceAdminInvitesOnly: false,
     createdAt: new Date(Date.now() - 90 * 24 * 3600 * 1000).toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -516,6 +516,16 @@ class MultiTenantService {
           if (event.data?.type === 'SYNC_ORGS' && Array.isArray(event.data.organisations)) {
             this.organisations = event.data.organisations;
           }
+          if (event.data?.type === 'SYNC_MEMBERS' && Array.isArray(event.data.members)) {
+            const memberMap = new Map<string, OrganisationMember>();
+            for (const m of this.members) {
+              if (m?.id) memberMap.set(m.id, m);
+            }
+            for (const m of event.data.members) {
+              if (m?.id) memberMap.set(m.id, m);
+            }
+            this.members = Array.from(memberMap.values());
+          }
         };
       } catch {
         // ignore
@@ -529,6 +539,23 @@ class MultiTenantService {
             const parsed = JSON.parse(e.newValue);
             if (Array.isArray(parsed) && parsed.length > 0) {
               this.organisations = parsed;
+            }
+          } catch {
+            // ignore
+          }
+        }
+        if (e.key === SAAS_MEMBERS_KEY && e.newValue) {
+          try {
+            const parsed = JSON.parse(e.newValue);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              const memberMap = new Map<string, OrganisationMember>();
+              for (const m of this.members) {
+                if (m?.id) memberMap.set(m.id, m);
+              }
+              for (const m of parsed) {
+                if (m?.id) memberMap.set(m.id, m);
+              }
+              this.members = Array.from(memberMap.values());
             }
           } catch {
             // ignore
@@ -564,6 +591,29 @@ class MultiTenantService {
     }
   }
 
+  private reloadMembers(): void {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const raw = localStorage.getItem(SAAS_MEMBERS_KEY);
+        if (raw) {
+          const stored = JSON.parse(raw);
+          if (Array.isArray(stored) && stored.length > 0) {
+            const memberMap = new Map<string, OrganisationMember>();
+            for (const m of this.members) {
+              if (m?.id) memberMap.set(m.id, m);
+            }
+            for (const m of stored) {
+              if (m?.id) memberMap.set(m.id, m);
+            }
+            this.members = Array.from(memberMap.values());
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }
+
   private load<T>(key: string, fallback: T): T {
     try {
       if (typeof localStorage !== 'undefined') {
@@ -580,9 +630,13 @@ class MultiTenantService {
     try {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(key, JSON.stringify(data));
-        if (key === SAAS_ORGS_KEY && this.syncChannel) {
+        if (this.syncChannel) {
           try {
-            this.syncChannel.postMessage({ type: 'SYNC_ORGS', organisations: data });
+            if (key === SAAS_ORGS_KEY) {
+              this.syncChannel.postMessage({ type: 'SYNC_ORGS', organisations: data });
+            } else if (key === SAAS_MEMBERS_KEY) {
+              this.syncChannel.postMessage({ type: 'SYNC_MEMBERS', members: data });
+            }
           } catch {
             // ignore
           }
@@ -855,7 +909,25 @@ class MultiTenantService {
 
   // Members Management
   getMembers(orgId: string = this.activeOrgId): OrganisationMember[] {
-    return this.members.filter(m => m.organisationId === orgId && m.isActive);
+    this.reloadMembers();
+    this.reloadOrganisations();
+
+    const activeOrg = this.organisations.find((o) => o.id === orgId);
+    const activeJoinCode = (activeOrg?.joinCode || '').toUpperCase().trim();
+
+    return this.members.filter((m) => {
+      if (!m.isActive) return false;
+      // Direct organisationId match
+      if (m.organisationId === orgId) return true;
+
+      // Resilient join code fallback (unifies members across cross-window / incognito / suffix sessions)
+      const mJoinCode = ((m as any).joinCode || '').toUpperCase().trim();
+      if (activeJoinCode && mJoinCode && mJoinCode === activeJoinCode) {
+        m.organisationId = orgId; // Normalize to active organisation
+        return true;
+      }
+      return false;
+    });
   }
 
   inviteMember(
@@ -953,6 +1025,9 @@ class MultiTenantService {
   }
 
   joinOrganisation(orgId: string, role: UserRole = 'member'): { organisation: Organisation; member: OrganisationMember } {
+    this.reloadOrganisations();
+    this.reloadMembers();
+
     const org = this.organisations.find(o => o.id === orgId);
     if (!org) throw new Error('Organisation not found');
 
@@ -961,18 +1036,20 @@ class MultiTenantService {
     const cleanUserId = user.id;
 
     const existing = this.members.find(
-      m => m.organisationId === orgId && (
+      m => (m.organisationId === orgId || ((m as any).joinCode && (m as any).joinCode === org.joinCode)) && (
         m.userId === cleanUserId ||
         (m.user?.email && m.user.email.toLowerCase().trim() === cleanUserEmail)
       )
     );
 
     if (existing) {
+      existing.organisationId = org.id;
       existing.isActive = true;
       existing.role = role;
       if (user.name) existing.user.name = user.name;
       if (user.initials) existing.user.initials = user.initials;
       if (user.avatarColor) existing.user.avatarColor = user.avatarColor;
+      (existing as any).joinCode = org.joinCode;
       this.save(SAAS_MEMBERS_KEY, this.members);
       this.setActiveOrgId(org.id);
       return { organisation: org, member: existing };
@@ -988,6 +1065,7 @@ class MultiTenantService {
       joinedAt: new Date().toISOString(),
       user: user,
     };
+    (newMember as any).joinCode = org.joinCode;
     this.members.push(newMember);
     this.save(SAAS_MEMBERS_KEY, this.members);
     this.setActiveOrgId(org.id);
@@ -1061,8 +1139,16 @@ class MultiTenantService {
       const rawPrefix = clean.split('-')[0];
       const orgName = rawPrefix === 'STRA' ? 'Stratcrest' : rawPrefix.charAt(0).toUpperCase() + rawPrefix.slice(1).toLowerCase();
       const orgSlug = rawPrefix === 'STRA' ? 'stratcrest' : rawPrefix.toLowerCase();
+      const orgId = rawPrefix === 'STRA' ? 'org-stratcrest' : `org-${orgSlug}`;
+      const existingById = this.organisations.find(o => o.id === orgId);
+      if (existingById) {
+        existingById.joinCode = clean;
+        this.save(SAAS_ORGS_KEY, this.organisations);
+        return existingById;
+      }
+
       const newTenant: Organisation = {
-        id: `org-${orgSlug}-${clean.split('-')[1]}`,
+        id: orgId,
         name: orgName,
         slug: orgSlug,
         joinCode: clean,
@@ -1104,7 +1190,10 @@ class MultiTenantService {
       inv.acceptedAt = new Date().toISOString();
       this.save(SAAS_INVITES_KEY, this.invitations);
     }
-    return this.joinOrganisation(org.id, role);
+    const result = this.joinOrganisation(org.id, role);
+    (result.member as any).joinCode = org.joinCode || code.trim().toUpperCase();
+    this.save(SAAS_MEMBERS_KEY, this.members);
+    return result;
   }
 
   updateMemberRole(orgId: string, memberId: string, newRole: UserRole): void {

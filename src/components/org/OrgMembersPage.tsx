@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   UserPlus,
   Trash2,
@@ -7,6 +7,7 @@ import {
   Check,
   Key,
   MessageSquare,
+  RefreshCw,
 } from 'lucide-react';
 import { OrgLayout } from './OrgLayout';
 import { useTenant } from '../../context/TenantContext';
@@ -26,6 +27,7 @@ export const OrgMembersPage: React.FC = () => {
     removeMember,
     revokeInvite,
     setIsJoinCodeModalOpen,
+    refreshTenantState,
   } = useTenant();
   const { openChat } = useBoard();
   const { userProfile } = useAuth();
@@ -36,6 +38,18 @@ export const OrgMembersPage: React.FC = () => {
   const [inviteJob, setInviteJob] = useState('');
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [copiedJoinCode, setCopiedJoinCode] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Auto-refresh members on mount
+  useEffect(() => {
+    refreshTenantState();
+  }, [refreshTenantState]);
+
+  const handleManualRefresh = () => {
+    setIsRefreshing(true);
+    refreshTenantState();
+    setTimeout(() => setIsRefreshing(false), 600);
+  };
 
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,15 +78,33 @@ export const OrgMembersPage: React.FC = () => {
             </p>
           </div>
 
-          {isAdmin && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <button
-              className="primary-cta-btn"
-              onClick={() => setIsInviting((p) => !p)}
+              className="secondary-btn"
+              type="button"
+              onClick={handleManualRefresh}
+              title="Refresh members list"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                fontSize: '0.85rem',
+              }}
             >
-              <UserPlus size={16} />
-              <span>Invite Member</span>
+              <RefreshCw size={15} style={{ animation: isRefreshing ? 'spin 1s linear infinite' : 'none' }} />
+              <span>Refresh</span>
             </button>
-          )}
+            {isAdmin && (
+              <button
+                className="primary-cta-btn"
+                onClick={() => setIsInviting((p) => !p)}
+              >
+                <UserPlus size={16} />
+                <span>Invite Member</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Organisation Join Code Banner for Workers */}
