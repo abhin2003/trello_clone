@@ -17,7 +17,7 @@ export const BoardActionModals: React.FC = () => {
   const navigate = useNavigate();
   const { currentPath } = useRouter();
 
-  const orgSlug = activeOrg?.slug || 'acme-corp';
+  const orgSlug = activeOrg?.slug || activeOrg?.id || 'my-org';
 
   // Rename State
   const [renameTitle, setRenameTitle] = useState('');

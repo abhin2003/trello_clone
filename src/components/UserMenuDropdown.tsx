@@ -142,7 +142,7 @@ export const UserMenuDropdown: React.FC = () => {
                 className="popover-menu-item"
                 onClick={() => {
                   setIsOpen(false);
-                  navigate(`/org/${activeOrg.slug || 'acme-corp'}/settings`);
+                  navigate(`/org/${activeOrg.slug || activeOrg.id || 'my-org'}/settings`);
                 }}
               >
                 <Settings size={16} />

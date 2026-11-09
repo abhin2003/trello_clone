@@ -94,6 +94,7 @@ export interface Workspace {
   createdAt: string;
   updatedAt: string;
   boardCount?: number;
+  allowedMemberIds?: string[];
 }
 
 export interface Team {

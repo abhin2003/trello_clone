@@ -46,7 +46,9 @@ interface TenantContextType {
   acceptInvite: (token: string) => void;
   updateMemberRole: (memberId: string, newRole: UserRole) => void;
   removeMember: (memberId: string) => void;
-  createWorkspace: (name: string, description: string, visibility?: 'private' | 'team' | 'organisation') => Workspace;
+  createWorkspace: (name: string, description: string, visibility?: 'private' | 'team' | 'organisation', allowedMemberIds?: string[]) => Workspace;
+  updateWorkspace: (wsId: string, updates: Partial<Workspace>) => Workspace;
+  deleteWorkspace: (wsId: string) => void;
   upgradePlan: (planId: SubscriptionPlanId) => void;
   exportOrgData: () => void;
   refreshTenantState: () => void;
@@ -192,8 +194,31 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const isSuspended = activeOrg.status === 'suspended';
 
   const workspaces = useMemo(() => {
-    return tenantService.getWorkspaces(activeOrg.id);
-  }, [activeOrg.id, refreshIndex]);
+    const allWs = tenantService.getWorkspaces(activeOrg.id);
+    // Company Owner and Platform Admin have full unrestricted access to all workspaces
+    if (isOwner || isPlatformAdmin) {
+      return allWs;
+    }
+
+    // For non-owner members: check if workspace access is restricted by the owner
+    const currentMember = tenantService.getMembers(activeOrg.id).find(
+      (m) => m.userId === currentUser.id || m.user?.email === currentUser.email
+    );
+    const memberId = currentMember?.id;
+    const userId = currentUser.id;
+
+    return allWs.filter((ws) => {
+      // If workspace is not restricted to specific members, all org members can access
+      if (!ws.allowedMemberIds || ws.allowedMemberIds.length === 0) {
+        return true;
+      }
+      // If restricted, member must be explicitly in the allowed list
+      return (
+        (memberId && ws.allowedMemberIds.includes(memberId)) ||
+        (userId && ws.allowedMemberIds.includes(userId))
+      );
+    });
+  }, [activeOrg.id, isOwner, isPlatformAdmin, currentUser.id, currentUser.email, refreshIndex]);
 
   // Set default workspace if none selected
   useEffect(() => {
@@ -274,10 +299,11 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const createWorkspace = (
     name: string,
     description: string,
-    visibility: 'private' | 'team' | 'organisation' = 'organisation'
+    visibility: 'private' | 'team' | 'organisation' = 'organisation',
+    allowedMemberIds?: string[]
   ): Workspace => {
     try {
-      const ws = tenantService.createWorkspace(activeOrg.id, name, description, visibility);
+      const ws = tenantService.createWorkspace(activeOrg.id, name, description, visibility, allowedMemberIds);
       setActiveWorkspaceId(ws.id);
       refreshTenantState();
       return ws;
@@ -286,6 +312,20 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setIsUpgradeModalOpen(true);
       throw err;
     }
+  };
+
+  const updateWorkspace = (wsId: string, updates: Partial<Workspace>): Workspace => {
+    const updated = tenantService.updateWorkspace(activeOrg.id, wsId, updates);
+    refreshTenantState();
+    return updated;
+  };
+
+  const deleteWorkspace = (wsId: string): void => {
+    tenantService.deleteWorkspace(activeOrg.id, wsId);
+    if (activeWorkspaceId === wsId) {
+      setActiveWorkspaceId(null);
+    }
+    refreshTenantState();
   };
 
   const upgradePlan = (planId: SubscriptionPlanId) => {
@@ -347,6 +387,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         updateMemberRole,
         removeMember,
         createWorkspace,
+        updateWorkspace,
+        deleteWorkspace,
         upgradePlan,
         exportOrgData,
         refreshTenantState,

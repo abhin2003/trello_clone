@@ -38,7 +38,7 @@ export const Sidebar: React.FC = () => {
     setIsOrgAdminOpen,
   } = useTenant();
 
-  const orgSlug = activeOrg?.slug || 'acme-corp';
+  const orgSlug = activeOrg?.slug || activeOrg?.id || 'my-org';
 
   if (!isSidebarOpen) return null;
 

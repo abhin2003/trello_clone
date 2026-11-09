@@ -40,7 +40,7 @@ export const NewBoardModal: React.FC = () => {
       setTitle('');
       setDescription('');
       setIsNewBoardOpen(false);
-      const orgSlug = activeOrg?.slug || 'acme-corp';
+      const orgSlug = activeOrg?.slug || activeOrg?.id || 'my-org';
       navigate(`/org/${orgSlug}/boards/${newBoardId}`);
     } catch {
       // Quota warning handled by context

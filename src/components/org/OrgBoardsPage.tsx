@@ -30,7 +30,8 @@ export const OrgBoardsPage: React.FC = () => {
   const { activeOrg, workspaces, activeWorkspaceId, setActiveWorkspaceId } = useTenant();
 
   const workspaceParam = searchParams.get('workspace');
-  const orgSlug = activeOrg.slug || 'acme-corp';
+  const orgSlug = activeOrg.slug || activeOrg.id || 'my-org';
+  const isRestrictedWorkspaceParam = Boolean(workspaceParam && !workspaces.some((w) => w.id === workspaceParam));
 
   // Determine initial selected workspace from URL param or active context
   const [selectedWorkspace, setSelectedWorkspace] = useState<string>(() => {
@@ -120,6 +121,41 @@ export const OrgBoardsPage: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* Restricted Workspace Alert */}
+        {isRestrictedWorkspaceParam && (
+          <div
+            style={{
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: '12px',
+              padding: '14px 18px',
+              marginBottom: '1.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Lock size={18} color="#ef4444" />
+              <div>
+                <strong style={{ color: '#ef4444', fontSize: '0.88rem' }}>Workspace Access Restricted</strong>
+                <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                  The company owner has restricted access to this workspace. Contact your organisation owner to request access.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={() => handleWorkspaceChange('all')}
+              style={{ fontSize: '0.78rem' }}
+            >
+              View All Accessible Boards
+            </button>
+          </div>
+        )}
 
         {/* Workspace Active Header Banner (if a specific workspace is selected) */}
         {currentWorkspace && (

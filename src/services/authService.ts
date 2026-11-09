@@ -490,14 +490,59 @@ export class AuthService {
       if (memErr) return { success: false, error: memErr.message };
 
       // Create default workspace
-      await client.from('workspaces').insert({
-        organisation_id: orgId,
-        name: 'General Workspace',
-        slug: 'general',
-        description: 'Default team workspace',
-        visibility: 'organisation',
-        created_by: userRes.user.id,
-      });
+      const { data: wsData } = await client
+        .from('workspaces')
+        .insert({
+          organisation_id: orgId,
+          name: 'General Workspace',
+          slug: 'general',
+          description: 'Default team workspace',
+          visibility: 'organisation',
+          created_by: userRes.user.id,
+        })
+        .select('id')
+        .single();
+
+      // Create initial clean board with empty standard workflow lists
+      const { data: boardData } = await client
+        .from('boards')
+        .insert({
+          organisation_id: orgId,
+          workspace_id: wsData?.id,
+          title: 'Main Board',
+          description: 'Main collaborative workspace board',
+          is_starred: true,
+          background: {
+            type: 'gradient',
+            name: 'Drello Cobalt',
+            value: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #0284c7 100%)',
+            preview: '#1e3a8a',
+          },
+        })
+        .select('id')
+        .single();
+
+      if (boardData?.id) {
+        await client.from('lists').insert([
+          { board_id: boardData.id, title: 'To Do', position: 1000 },
+          { board_id: boardData.id, title: 'In Progress', position: 2000 },
+          { board_id: boardData.id, title: 'Done', position: 3000 },
+        ]);
+      }
+
+      // Purge any local dummy demo boards/chats from localStorage
+      if (typeof localStorage !== 'undefined') {
+        try {
+          const boardsKey = 'stratcrest_flow_boards_v1';
+          const raw = localStorage.getItem(boardsKey);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            const cleaned = parsed.filter((b: any) => b.organisationId !== 'org-acme' && b.organisationId !== 'org-stratcrest');
+            localStorage.setItem(boardsKey, JSON.stringify(cleaned));
+          }
+          localStorage.setItem('stratcrest_flow_chat_messages_v1', JSON.stringify({}));
+        } catch {}
+      }
 
       return { success: true, organisationId: orgId };
     } catch (e: any) {

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import type { Board, Card, FilterOptions, BoardBackground, ChatMessage, Member } from '../types';
-import { INITIAL_BOARDS, DEFAULT_LABELS, INITIAL_CHATS } from '../data/initialData';
+import { INITIAL_BOARDS, DEFAULT_LABELS } from '../data/initialData';
 import { useTenant } from './TenantContext';
 import { useAuth } from './AuthContext';
 import confetti from 'canvas-confetti';
@@ -140,7 +140,7 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch (e) {
       console.warn('Failed to parse chat messages', e);
     }
-    return INITIAL_CHATS;
+    return {};
   });
 
   // Helper to compute unified conversation key between two users
@@ -331,12 +331,54 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Filter boards to ONLY those belonging to the active organisation
   const tenantBoards = useMemo(() => {
     return boards
-      .filter((b) => (b.organisationId || 'org-acme') === activeOrg.id)
+      .filter((b) => b.organisationId === activeOrg.id)
       .map((b) => ({
         ...b,
         members: currentOrgMembers.length > 0 ? currentOrgMembers : (b.members || []),
       }));
   }, [boards, activeOrg.id, currentOrgMembers]);
+
+  // Auto-initialize clean production board for active organization if none exists
+  useEffect(() => {
+    if (activeOrg?.id) {
+      const existing = boards.filter((b) => b.organisationId === activeOrg.id);
+      if (existing.length === 0) {
+        const newId = `board-${activeOrg.id}-main`;
+        const cleanBoard: Board = {
+          id: newId,
+          organisationId: activeOrg.id,
+          workspaceId: undefined,
+          title: 'Main Board',
+          description: `Main delivery and workflow board for ${activeOrg.name}`,
+          isStarred: true,
+          background: {
+            type: 'gradient',
+            value: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #0284c7 100%)',
+            preview: '#1e3a8a',
+          },
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          lists: [
+            { id: `list-${Date.now()}-1`, boardId: newId, title: 'To Do', cardIds: [] },
+            { id: `list-${Date.now()}-2`, boardId: newId, title: 'In Progress', cardIds: [] },
+            { id: `list-${Date.now()}-3`, boardId: newId, title: 'Done', cardIds: [] },
+          ],
+          cards: {} as Record<string, Card>,
+          labels: DEFAULT_LABELS,
+          members: currentOrgMembers,
+        };
+
+        setBoards((prev) => {
+          // If this is a real user organisation, purge old demo boards
+          const cleaned = activeOrg.id !== 'org-acme'
+            ? prev.filter((b) => b.organisationId !== 'org-acme' && b.organisationId !== 'org-stratcrest')
+            : prev;
+          return [...cleaned, cleanBoard];
+        });
+        setActiveBoardId(newId);
+      }
+    }
+  }, [activeOrg?.id, activeOrg?.name, boards, currentOrgMembers]);
 
   // Ensure active board is within this tenant
   useEffect(() => {
@@ -349,15 +391,38 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const activeBoard = useMemo(() => {
     const found = tenantBoards.find((b) => b.id === activeBoardId);
-    const board = found || tenantBoards[0] || boards[0];
-    if (board && currentOrgMembers.length > 0) {
+    const board = found || tenantBoards[0];
+    if (board) {
       return {
         ...board,
-        members: currentOrgMembers,
+        members: currentOrgMembers.length > 0 ? currentOrgMembers : (board.members || []),
       };
     }
-    return board;
-  }, [tenantBoards, activeBoardId, boards, currentOrgMembers]);
+
+    // Safe clean board fallback for active organisation (NEVER demo board!)
+    return {
+      id: `board-${activeOrg.id}-default`,
+      organisationId: activeOrg.id,
+      title: 'Main Board',
+      description: `Workspace board for ${activeOrg.name}`,
+      isStarred: false,
+      background: {
+        type: 'gradient' as const,
+        value: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #0284c7 100%)',
+        preview: '#1e3a8a',
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      lists: [
+        { id: `list-1`, boardId: `board-${activeOrg.id}-default`, title: 'To Do', cardIds: [] },
+        { id: `list-2`, boardId: `board-${activeOrg.id}-default`, title: 'In Progress', cardIds: [] },
+        { id: `list-3`, boardId: `board-${activeOrg.id}-default`, title: 'Done', cardIds: [] },
+      ],
+      cards: {} as Record<string, Card>,
+      labels: DEFAULT_LABELS,
+      members: currentOrgMembers,
+    };
+  }, [tenantBoards, activeBoardId, currentOrgMembers, activeOrg.id, activeOrg.name]);
 
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));

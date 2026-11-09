@@ -38,6 +38,26 @@ describe('Stratcrest Flow: Multi-Tenant SaaS Architecture Tests', () => {
       acmeWorkspaces.forEach((w) => expect(w.organisationId).toBe('org-acme'));
       technovaWorkspaces.forEach((w) => expect(w.organisationId).toBe('org-technova'));
     });
+
+    it('should support company owner restricting workspace access to specific members', () => {
+      // Create a restricted workspace with allowed member IDs
+      const restrictedWs = tenantService.createWorkspace(
+        'org-acme',
+        'Executive & Legal',
+        'Confidential executive workspace',
+        'private',
+        ['om-acme-1', 'om-acme-2']
+      );
+
+      expect(restrictedWs.allowedMemberIds).toBeDefined();
+      expect(restrictedWs.allowedMemberIds).toEqual(['om-acme-1', 'om-acme-2']);
+
+      // Update workspace access restrictions
+      const updated = tenantService.updateWorkspace('org-acme', restrictedWs.id, {
+        allowedMemberIds: ['om-acme-1'],
+      });
+      expect(updated.allowedMemberIds).toEqual(['om-acme-1']);
+    });
   });
 
   describe('2. Multi-Organisation Switching & Role Resolution', () => {

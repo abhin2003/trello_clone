@@ -59,7 +59,7 @@ export const Header: React.FC = () => {
   const { currentPath } = useRouter();
   const navigate = useNavigate();
 
-  const orgSlug = activeOrg?.slug || 'acme-corp';
+  const orgSlug = activeOrg?.slug || activeOrg?.id || 'my-org';
 
   // Check if an individual board is currently open in the route
   const isBoardOpen = Boolean(

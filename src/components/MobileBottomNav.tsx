@@ -17,7 +17,7 @@ export const MobileBottomNav: React.FC = () => {
   const { activeOrg, members, isAdmin } = useTenant();
   const { openChat, closeChat, activeChatMemberId } = useBoard();
 
-  const orgSlug = activeOrg?.slug || 'acme-corp';
+  const orgSlug = activeOrg?.slug || activeOrg?.id || 'my-org';
 
   const isDashboard = currentPath.endsWith('/dashboard');
   const isWorkspaces = currentPath.includes('/workspaces');

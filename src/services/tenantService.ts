@@ -158,6 +158,21 @@ const INITIAL_ORGS: Organisation[] = [
     updatedAt: new Date().toISOString(),
   },
   {
+    id: 'org-technova',
+    name: 'TechNova Solutions',
+    slug: 'technova',
+    joinCode: 'TECH-1049',
+    logoUrl: '',
+    primaryColor: '#8b5cf6',
+    status: 'active',
+    planId: 'starter',
+    usedStorageBytes: 120000000,
+    allowedEmailDomain: 'technova.io',
+    enforceAdminInvitesOnly: true,
+    createdAt: new Date(Date.now() - 60 * 24 * 3600 * 1000).toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
     id: 'org-apex-suspended',
     name: 'Apex Legacy Corp (Suspended Demo)',
     slug: 'apex-legacy',
@@ -878,6 +893,71 @@ class MultiTenantService {
     this.workspaces.push(newWs);
     this.save(SAAS_WORKSPACES_KEY, this.workspaces);
 
+    // Initialize a clean default board for this organisation with 0 dummy cards
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const boardsKey = 'stratcrest_flow_boards_v1';
+        const rawBoards = localStorage.getItem(boardsKey);
+        let currentBoards: any[] = [];
+        if (rawBoards) {
+          try {
+            currentBoards = JSON.parse(rawBoards);
+          } catch {}
+        }
+        currentBoards = currentBoards.filter((b: any) => b.organisationId !== 'org-acme' && b.organisationId !== 'org-stratcrest');
+
+        const newBoardId = `board-${newOrg.id}-main`;
+        const initialCleanBoard = {
+          id: newBoardId,
+          organisationId: newOrg.id,
+          workspaceId: newWs.id,
+          title: 'Main Board',
+          description: `Main delivery and workflow board for ${newOrg.name}`,
+          isStarred: true,
+          background: {
+            type: 'gradient',
+            name: 'Drello Cobalt',
+            value: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #0284c7 100%)',
+            preview: '#1e3a8a',
+          },
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          lists: [
+            { id: `list-${Date.now()}-1`, boardId: newBoardId, title: 'To Do', cardIds: [] },
+            { id: `list-${Date.now()}-2`, boardId: newBoardId, title: 'In Progress', cardIds: [] },
+            { id: `list-${Date.now()}-3`, boardId: newBoardId, title: 'Done', cardIds: [] },
+          ],
+          cards: {},
+          labels: [
+            { id: 'lbl-high', name: 'High Priority', color: '#ef4444', textColor: '#ffffff' },
+            { id: 'lbl-feat', name: 'New Feature', color: '#3b82f6', textColor: '#ffffff' },
+            { id: 'lbl-design', name: 'UI / UX Design', color: '#8b5cf6', textColor: '#ffffff' },
+            { id: 'lbl-qa', name: 'Quality Assurance', color: '#10b981', textColor: '#ffffff' },
+            { id: 'lbl-infra', name: 'DevOps & Cloud', color: '#06b6d4', textColor: '#ffffff' },
+            { id: 'lbl-docs', name: 'Documentation', color: '#f59e0b', textColor: '#ffffff' },
+          ],
+          members: [
+            {
+              id: newMember.id,
+              name: activeUser.name,
+              initials: activeUser.initials || 'OW',
+              avatarColor: activeUser.avatarColor || '#3b82f6',
+              email: activeUser.email,
+              role: 'owner',
+              jobTitle: 'Founder & Owner',
+            },
+          ],
+        };
+        currentBoards.push(initialCleanBoard);
+        localStorage.setItem(boardsKey, JSON.stringify(currentBoards));
+
+        // Purge dummy chats
+        localStorage.setItem('stratcrest_flow_chat_messages_v1', JSON.stringify({}));
+      } catch (err) {
+        console.warn('Failed to seed clean board', err);
+      }
+    }
+
     // Switch active organisation to the newly created one
     this.setActiveOrgId(newOrg.id);
 
@@ -1233,8 +1313,10 @@ class MultiTenantService {
     orgId: string,
     name: string,
     description: string,
-    visibility: 'private' | 'team' | 'organisation' = 'organisation'
+    visibility: 'private' | 'team' | 'organisation' = 'organisation',
+    allowedMemberIds?: string[]
   ): Workspace {
+    const activeUser = this.currentUser || CURRENT_USER;
     const newWs: Workspace = {
       id: uid('ws'),
       organisationId: orgId,
@@ -1242,7 +1324,8 @@ class MultiTenantService {
       slug: name.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
       description,
       visibility,
-      createdBy: CURRENT_USER.id,
+      allowedMemberIds: allowedMemberIds && allowedMemberIds.length > 0 ? allowedMemberIds : undefined,
+      createdBy: activeUser.id,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -1250,8 +1333,39 @@ class MultiTenantService {
     this.workspaces.push(newWs);
     this.save(SAAS_WORKSPACES_KEY, this.workspaces);
 
-    this.logTenantAudit(orgId, 'workspace.created', 'workspace', newWs.id, { name, visibility });
+    this.logTenantAudit(orgId, 'workspace.created', 'workspace', newWs.id, {
+      name,
+      visibility,
+      restricted: Boolean(allowedMemberIds?.length),
+      allowedMembersCount: allowedMemberIds?.length || 0,
+    });
     return newWs;
+  }
+
+  updateWorkspace(
+    orgId: string,
+    wsId: string,
+    updates: Partial<Workspace>
+  ): Workspace {
+    const wsIdx = this.workspaces.findIndex(w => w.id === wsId && w.organisationId === orgId);
+    if (wsIdx === -1) throw new Error('Workspace not found');
+
+    const updated = {
+      ...this.workspaces[wsIdx],
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+    this.workspaces[wsIdx] = updated;
+    this.save(SAAS_WORKSPACES_KEY, this.workspaces);
+
+    this.logTenantAudit(orgId, 'workspace.updated', 'workspace', wsId, updates);
+    return updated;
+  }
+
+  deleteWorkspace(orgId: string, wsId: string): void {
+    this.workspaces = this.workspaces.filter(w => !(w.id === wsId && w.organisationId === orgId));
+    this.save(SAAS_WORKSPACES_KEY, this.workspaces);
+    this.logTenantAudit(orgId, 'workspace.deleted', 'workspace', wsId, {});
   }
 
   // Subscription Plans & Quotas

@@ -32,26 +32,28 @@ export const OrgDashboardPage: React.FC = () => {
   const { activeOrg, members, workspaces, auditLogs, setIsOrgAdminOpen, setIsCreateWorkspaceOpen, setIsJoinCodeModalOpen } = useTenant();
   const { userProfile } = useAuth();
 
-  const orgSlug = activeOrg.slug || 'acme-corp';
+  const orgSlug = activeOrg.slug || activeOrg.id || 'my-org';
 
-  // Extract tasks assigned to current user or with due dates
+  // Extract tasks assigned to current user or with due dates strictly from this organisation
   const myTasks: { boardId: string; boardTitle: string; cardTitle: string; dueDate?: string; isDone: boolean }[] = [];
 
-  boards.forEach((b) => {
-    if (b.cards) {
-      Object.values(b.cards).forEach((c) => {
-        if (c.dueDate || c.members.includes(userProfile?.id || '')) {
-          myTasks.push({
-            boardId: b.id,
-            boardTitle: b.title,
-            cardTitle: c.title,
-            dueDate: c.dueDate,
-            isDone: Boolean(c.dueComplete),
-          });
-        }
-      });
-    }
-  });
+  boards
+    .filter((b) => b.organisationId === activeOrg.id)
+    .forEach((b) => {
+      if (b.cards) {
+        Object.values(b.cards).forEach((c) => {
+          if (c.dueDate || c.members.includes(userProfile?.id || '')) {
+            myTasks.push({
+              boardId: b.id,
+              boardTitle: b.title,
+              cardTitle: c.title,
+              dueDate: c.dueDate,
+              isDone: Boolean(c.dueComplete),
+            });
+          }
+        });
+      }
+    });
 
   return (
     <OrgLayout activeNav="dashboard">
@@ -298,20 +300,26 @@ export const OrgDashboardPage: React.FC = () => {
               </div>
 
               <div className="dash-activity-timeline">
-                {auditLogs.slice(0, 6).map((log) => (
-                  <div key={log.id} className="dash-timeline-item">
-                    <div className="timeline-dot" />
-                    <div className="timeline-content">
-                      <div className="timeline-actor">
-                        <strong>{log.actorName}</strong>
-                        <span className="timeline-action">{log.action.replace('.', ' ')}</span>
-                      </div>
-                      <div className="timeline-time">
-                        {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {auditLogs.length === 0 ? (
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '12px 0', margin: 0 }}>
+                    No recent team activity logged yet.
+                  </p>
+                ) : (
+                  auditLogs.slice(0, 6).map((log) => (
+                    <div key={log.id} className="dash-timeline-item">
+                      <div className="timeline-dot" />
+                      <div className="timeline-content">
+                        <div className="timeline-actor">
+                          <strong>{log.actorName}</strong>
+                          <span className="timeline-action">{log.action.replace('.', ' ')}</span>
+                        </div>
+                        <div className="timeline-time">
+                          {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           </div>
