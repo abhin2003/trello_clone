@@ -595,7 +595,10 @@ export class AuthService {
     }
 
     try {
-      const org = tenantService.findOrgByJoinCode(cleanCode);
+      let org = await tenantService.findOrgByJoinCodeAsync(cleanCode);
+      if (!org) {
+        org = tenantService.findOrgByJoinCode(cleanCode);
+      }
       if (!org) {
         return { success: false, error: `Invalid organisation joining code "${cleanCode}". Please verify with your owner.` };
       }

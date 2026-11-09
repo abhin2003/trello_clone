@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabase';
 import type {
   Organisation,
   OrganisationMember,
@@ -500,6 +500,32 @@ const INITIAL_AUDIT_LOGS: AuditLog[] = [
 // Unique ID generator to prevent timestamp collisions in fast test/creation cycles
 const uid = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
 
+// Deterministic helper to convert arbitrary string IDs (e.g., 'org-acme') to valid RFC 4122 UUID v4
+export function toUUID(str: string): string {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (uuidRegex.test(str)) {
+    return str.toLowerCase();
+  }
+
+  let h1 = 0xdeadbeef;
+  let h2 = 0x41c6ce57;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+
+  const hex1 = ('00000000' + (h1 >>> 0).toString(16)).slice(-8);
+  const hex2 = ('00000000' + (h2 >>> 0).toString(16)).slice(-8);
+  const hex3 = ('00000000' + ((h1 ^ h2) >>> 0).toString(16)).slice(-8);
+  const hex4 = ('00000000' + ((h1 + h2) >>> 0).toString(16)).slice(-8);
+
+  const raw = `${hex1}${hex2}${hex3}${hex4}`;
+  return `${raw.substring(0, 8)}-${raw.substring(8, 12)}-4${raw.substring(13, 16)}-a${raw.substring(17, 20)}-${raw.substring(20, 32)}`;
+}
+
 // Service Class
 class MultiTenantService {
   private organisations: Organisation[];
@@ -586,7 +612,7 @@ class MultiTenantService {
       : 'org-acme';
 
     if (isSupabaseConfigured()) {
-      console.info('[Supabase] Active connection detected. Multi-tenant RLS client initialized:', supabase);
+      console.info('[Supabase] Active connection detected. Multi-tenant client ready.');
     }
   }
 
@@ -966,6 +992,9 @@ class MultiTenantService {
       planId: newOrg.planId,
     });
 
+    this.syncOrganisationToSupabase(newOrg);
+    this.syncMemberToSupabase(newMember);
+
     return newOrg;
   }
 
@@ -1104,6 +1133,246 @@ class MultiTenantService {
     return { organisationId: inv.organisationId, organisation: org };
   }
 
+  // Supabase Real-Time Cross-Device Synchronization
+  async syncOrganisationToSupabase(org: Organisation): Promise<void> {
+    if (!isSupabaseConfigured()) return;
+    try {
+      const client = getSupabaseClient();
+      const orgUuid = toUUID(org.id);
+      await client.from('organisations').upsert(
+        {
+          id: orgUuid,
+          name: org.name,
+          slug: org.slug || org.name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+          join_code: org.joinCode || null,
+          logo_url: org.logoUrl || null,
+          primary_color: org.primaryColor || '#3b82f6',
+          status: org.status || 'active',
+          status_reason: org.statusReason || null,
+          plan_id: org.planId || 'free_trial',
+          used_storage_bytes: org.usedStorageBytes || 0,
+          allowed_email_domain: org.allowedEmailDomain || null,
+          enforce_admin_invites_only: org.enforceAdminInvitesOnly ?? true,
+        },
+        { onConflict: 'id' }
+      );
+    } catch (e) {
+      console.warn('[tenantService] syncOrganisationToSupabase notice:', e);
+    }
+  }
+
+  async syncMemberToSupabase(member: OrganisationMember): Promise<void> {
+    if (!isSupabaseConfigured()) return;
+    try {
+      const client = getSupabaseClient();
+      const orgUuid = toUUID(member.organisationId);
+      const memberUuid = toUUID(member.id);
+      const user = member.user || { name: 'Member', email: '' };
+
+      const payload: any = {
+        id: memberUuid,
+        organisation_id: orgUuid,
+        user_id: member.userId,
+        role: member.role || 'member',
+        job_title: member.jobTitle || 'Team Member',
+        is_active: member.isActive ?? true,
+        user_name: user.name || '',
+        user_email: user.email || '',
+        user_initials: user.initials || 'U',
+        user_avatar_color: user.avatarColor || '#3b82f6',
+      };
+
+      const { error } = await client.from('organisation_members').upsert(payload, { onConflict: 'id' });
+      if (error && error.code === '42703') {
+        // Fallback if custom user_name columns not yet migrated
+        delete payload.user_name;
+        delete payload.user_email;
+        delete payload.user_initials;
+        delete payload.user_avatar_color;
+        await client.from('organisation_members').upsert(payload, { onConflict: 'id' });
+      }
+    } catch (e) {
+      console.warn('[tenantService] syncMemberToSupabase notice:', e);
+    }
+  }
+
+  async findOrgByJoinCodeAsync(code: string): Promise<Organisation | undefined> {
+    const clean = (code || '').trim().toUpperCase();
+    if (!clean) return undefined;
+
+    // 1. Query Supabase organisations first for latest cross-device state
+    if (isSupabaseConfigured()) {
+      try {
+        const client = getSupabaseClient();
+        const cleanStripped = clean.replace(/[^A-Z0-9]/g, '');
+
+        const { data, error } = await client
+          .from('organisations')
+          .select('*')
+          .or(`join_code.ilike.${clean},join_code.ilike.${cleanStripped}`);
+
+        if (!error && data && data.length > 0) {
+          const row = data[0];
+          const mappedOrg: Organisation = {
+            id: row.id,
+            name: row.name,
+            slug: row.slug || row.name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+            joinCode: row.join_code || clean,
+            logoUrl: row.logo_url || '',
+            primaryColor: row.primary_color || '#3b82f6',
+            status: row.status || 'active',
+            statusReason: row.status_reason || undefined,
+            planId: row.plan_id || 'free_trial',
+            usedStorageBytes: row.used_storage_bytes || 0,
+            allowedEmailDomain: row.allowed_email_domain || undefined,
+            enforceAdminInvitesOnly: row.enforce_admin_invites_only ?? false,
+            createdAt: row.created_at || new Date().toISOString(),
+            updatedAt: row.updated_at || new Date().toISOString(),
+          };
+
+          // Cache into local organisations list
+          this.reloadOrganisations();
+          const existingIdx = this.organisations.findIndex(
+            (o) => o.id === mappedOrg.id || (o.joinCode && o.joinCode.toUpperCase() === clean)
+          );
+          if (existingIdx >= 0) {
+            this.organisations[existingIdx] = mappedOrg;
+          } else {
+            this.organisations.push(mappedOrg);
+          }
+          this.save(SAAS_ORGS_KEY, this.organisations);
+          return mappedOrg;
+        }
+      } catch (e) {
+        console.warn('[tenantService] findOrgByJoinCodeAsync notice:', e);
+      }
+    }
+
+    // 2. Fallback to local memory / localStorage
+    return this.findOrgByJoinCode(clean);
+  }
+
+  async fetchMembersFromSupabase(orgId: string): Promise<OrganisationMember[]> {
+    if (!isSupabaseConfigured()) {
+      return this.getMembers(orgId);
+    }
+
+    this.reloadOrganisations();
+    const org = this.organisations.find((o) => o.id === orgId);
+    const orgJoinCode = (org?.joinCode || '').toUpperCase().trim();
+    const targetUuid = toUUID(orgId);
+
+    try {
+      const client = getSupabaseClient();
+      let candidateOrgIds: string[] = [targetUuid];
+
+      if (orgJoinCode) {
+        const { data: matchedOrgs } = await client
+          .from('organisations')
+          .select('id')
+          .ilike('join_code', orgJoinCode);
+        if (matchedOrgs && matchedOrgs.length > 0) {
+          candidateOrgIds = Array.from(new Set([...candidateOrgIds, ...matchedOrgs.map((o: any) => o.id)]));
+        }
+      }
+
+      // Ensure all IDs passed to Postgres UUID column are valid UUID format
+      const validUuids = candidateOrgIds
+        .map(toUUID)
+        .filter((id) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
+
+      const { data, error } = await client
+        .from('organisation_members')
+        .select('*')
+        .in('organisation_id', validUuids)
+        .eq('is_active', true);
+
+      if (error) {
+        console.warn('[tenantService] fetchMembersFromSupabase query notice:', error.message);
+        return this.getMembers(orgId);
+      }
+
+      if (data && Array.isArray(data) && data.length > 0) {
+        let profilesMap = new Map<string, any>();
+        try {
+          const userIds = data.map((d: any) => d.user_id).filter(Boolean);
+          if (userIds.length > 0) {
+            const { data: profs } = await client
+              .from('profiles')
+              .select('*')
+              .in('id', userIds);
+            if (profs) {
+              profs.forEach((p: any) => profilesMap.set(p.id, p));
+            }
+          }
+        } catch {
+          // ignore
+        }
+
+        const remoteMembers: OrganisationMember[] = data.map((row: any) => {
+          const prof = profilesMap.get(row.user_id);
+          const email = row.user_email || prof?.email || '';
+          const name = row.user_name || prof?.name || (email ? email.split('@')[0] : 'Team Member');
+          const initials = row.user_initials || prof?.initials || name.slice(0, 2).toUpperCase() || 'U';
+          const avatarColor = row.user_avatar_color || prof?.avatar_color || '#3b82f6';
+
+          return {
+            id: row.id,
+            organisationId: orgId,
+            userId: row.user_id,
+            role: (row.role as UserRole) || 'member',
+            jobTitle: row.job_title || (row.role === 'owner' ? 'Founder & Owner' : 'Team Member'),
+            isActive: row.is_active ?? true,
+            joinedAt: row.joined_at || new Date().toISOString(),
+            user: {
+              id: row.user_id,
+              email,
+              name,
+              initials,
+              avatarColor,
+              isPlatformAdmin: false,
+            },
+          };
+        });
+
+        this.reloadMembers();
+        const memberMap = new Map<string, OrganisationMember>();
+
+        // Seed with existing local members for this org
+        for (const m of this.members) {
+          if (m.organisationId === orgId) {
+            const key = m.user?.email ? m.user.email.toLowerCase().trim() : m.userId;
+            memberMap.set(key, m);
+          }
+        }
+
+        // Merge remote members
+        for (const rm of remoteMembers) {
+          const key = rm.user?.email ? rm.user.email.toLowerCase().trim() : rm.userId;
+          const existing = memberMap.get(key);
+          if (existing) {
+            existing.role = rm.role;
+            existing.jobTitle = rm.jobTitle;
+            existing.isActive = rm.isActive;
+            if (rm.user?.name) existing.user.name = rm.user.name;
+            if (rm.user?.email) existing.user.email = rm.user.email;
+          } else {
+            (rm as any).joinCode = orgJoinCode;
+            memberMap.set(key, rm);
+          }
+        }
+
+        const otherOrgMembers = this.members.filter((m) => m.organisationId !== orgId);
+        this.members = [...otherOrgMembers, ...Array.from(memberMap.values())];
+        this.save(SAAS_MEMBERS_KEY, this.members);
+      }
+    } catch (e) {
+      console.warn('[tenantService] fetchMembersFromSupabase notice:', e);
+    }
+
+    return this.getMembers(orgId);
+  }
+
   joinOrganisation(orgId: string, role: UserRole = 'member'): { organisation: Organisation; member: OrganisationMember } {
     this.reloadOrganisations();
     this.reloadMembers();
@@ -1132,6 +1401,7 @@ class MultiTenantService {
       (existing as any).joinCode = org.joinCode;
       this.save(SAAS_MEMBERS_KEY, this.members);
       this.setActiveOrgId(org.id);
+      this.syncMemberToSupabase(existing);
       return { organisation: org, member: existing };
     }
 
@@ -1149,6 +1419,7 @@ class MultiTenantService {
     this.members.push(newMember);
     this.save(SAAS_MEMBERS_KEY, this.members);
     this.setActiveOrgId(org.id);
+    this.syncMemberToSupabase(newMember);
     return { organisation: org, member: newMember };
   }
 

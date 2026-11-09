@@ -12,7 +12,7 @@ import type {
   AuditLog,
 } from '../types/saas';
 import { tenantService } from '../services/tenantService';
-import { isSupabaseConfigured } from '../lib/supabase';
+import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 
 interface TenantContextType {
@@ -85,6 +85,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Trigger state refresh
   const [refreshIndex, setRefreshIndex] = useState(0);
   const refreshTenantState = useCallback(() => {
+    if (isSupabaseConfigured()) {
+      tenantService.fetchMembersFromSupabase(tenantService.getActiveOrgId()).catch(() => {});
+    }
     setRefreshIndex(prev => prev + 1);
   }, []);
 
@@ -108,6 +111,49 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       tenantService.setActiveOrgId(authActiveOrg.id, authActiveOrg);
     }
   }, [authActiveOrg, activeOrgId]);
+
+  // Cross-device Supabase members fetch & Realtime subscription
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+
+    const currentOrg = tenantService.getActiveOrganisation();
+    if (!currentOrg) return;
+
+    // 1. Initial fetch from Supabase
+    tenantService.fetchMembersFromSupabase(currentOrg.id).then(() => {
+      setRefreshIndex(prev => prev + 1);
+    });
+
+    // 2. Also ensure current active organization is synced to Supabase
+    tenantService.syncOrganisationToSupabase(currentOrg);
+
+    // 3. Setup Realtime subscription on public.organisation_members
+    try {
+      const client = getSupabaseClient();
+      const channel = client
+        .channel(`public:organisation_members_sync_${currentOrg.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'organisation_members',
+          },
+          () => {
+            tenantService.fetchMembersFromSupabase(currentOrg.id).then(() => {
+              setRefreshIndex(prev => prev + 1);
+            });
+          }
+        )
+        .subscribe();
+
+      return () => {
+        client.removeChannel(channel);
+      };
+    } catch (err) {
+      console.warn('[TenantContext] Supabase realtime subscription error:', err);
+    }
+  }, [activeOrgId]);
 
   // Real-time multi-tab & window synchronization
   useEffect(() => {

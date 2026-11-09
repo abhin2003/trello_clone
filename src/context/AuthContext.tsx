@@ -333,7 +333,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const registerWorkerAndJoin = async (fullName: string, email: string, password: string, joinCode: string) => {
     setAuthError(null);
     const cleanCode = (joinCode || '').trim().toUpperCase();
-    const targetOrg = tenantService.findOrgByJoinCode(cleanCode);
+    let targetOrg = await tenantService.findOrgByJoinCodeAsync(cleanCode);
+    if (!targetOrg) {
+      targetOrg = tenantService.findOrgByJoinCode(cleanCode);
+    }
     if (!targetOrg) {
       const err = `Invalid joining code "${cleanCode}". Please verify the code with your organisation owner.`;
       setAuthError(err);
@@ -358,7 +361,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     // 3. Atomically add to organisation before syncing session
-    tenantService.joinWithCode(cleanCode, registeredUser);
+    const joinResult = tenantService.joinWithCode(cleanCode, registeredUser);
+    if (joinResult && joinResult.member) {
+      tenantService.syncMemberToSupabase(joinResult.member);
+    }
 
     // 4. Sync session now (memberships will already include targetOrg!)
     if (regRes.session) {
@@ -390,6 +396,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const joinCode = tenantService.getOrgJoinCode(orgRes.organisationId);
+    const activeOrgObj = tenantService.getActiveOrganisation();
+    if (activeOrgObj) {
+      tenantService.syncOrganisationToSupabase(activeOrgObj);
+      const ownerMember = tenantService.getMembers(activeOrgObj.id).find((m) => m.role === 'owner');
+      if (ownerMember) {
+        tenantService.syncMemberToSupabase(ownerMember);
+      }
+    }
     return { success: true, organisation: orgRes.organisation, joinCode };
   };
 

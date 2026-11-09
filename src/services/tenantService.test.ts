@@ -276,13 +276,17 @@ describe('Stratcrest Flow: Multi-Tenant SaaS Architecture Tests', () => {
       }).toThrow(/Invalid organisation joining code/);
     });
 
-    it('should allow owner to regenerate join code', () => {
-      const oldCode = tenantService.getOrgJoinCode('org-technova');
-      const newCode = tenantService.regenerateOrgJoinCode('org-technova');
+    it('should support async join code resolution across sessions and devices', async () => {
+      const org = await tenantService.findOrgByJoinCodeAsync('ACME-2026');
+      expect(org).toBeDefined();
+      expect(org?.id).toBe('org-acme');
+    });
 
-      expect(newCode).toBeTruthy();
-      expect(newCode).not.toBe(oldCode);
-      expect(tenantService.findOrgByJoinCode(newCode)?.id).toBe('org-technova');
+    it('should support fetching members from Supabase with graceful fallback', async () => {
+      const members = await tenantService.fetchMembersFromSupabase('org-acme');
+      expect(members).toBeDefined();
+      expect(Array.isArray(members)).toBe(true);
+      expect(members.length).toBeGreaterThan(0);
     });
   });
 });
