@@ -1200,16 +1200,32 @@ class MultiTenantService {
     const clean = (code || '').trim().toUpperCase();
     if (!clean) return undefined;
 
-    // 1. Query Supabase organisations first for latest cross-device state
+    // 1. Check local organisations first for immediate response
+    const local = this.findOrgByJoinCode(clean);
+    if (local && local.id !== `org-${clean.split('-')[0].toLowerCase()}`) {
+      return local;
+    }
+
+    // 2. Query Supabase organisations with a 2.5s network timeout
     if (isSupabaseConfigured()) {
       try {
         const client = getSupabaseClient();
         const cleanStripped = clean.replace(/[^A-Z0-9]/g, '');
 
-        const { data, error } = await client
+        const filter = cleanStripped && cleanStripped !== clean
+          ? `join_code.ilike.${clean},join_code.ilike.${cleanStripped}`
+          : `join_code.ilike.${clean}`;
+
+        const queryPromise = client
           .from('organisations')
           .select('*')
-          .or(`join_code.ilike.${clean},join_code.ilike.${cleanStripped}`);
+          .or(filter);
+
+        const timeoutPromise = new Promise<{ data: any; error: any }>((_, reject) =>
+          setTimeout(() => reject(new Error('Network timeout')), 2500)
+        );
+
+        const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
 
         if (!error && data && data.length > 0) {
           const row = data[0];
@@ -1248,8 +1264,8 @@ class MultiTenantService {
       }
     }
 
-    // 2. Fallback to local memory / localStorage
-    return this.findOrgByJoinCode(clean);
+    // 3. Fallback to local
+    return local;
   }
 
   async fetchMembersFromSupabase(orgId: string): Promise<OrganisationMember[]> {
@@ -1266,13 +1282,24 @@ class MultiTenantService {
       const client = getSupabaseClient();
       let candidateOrgIds: string[] = [targetUuid];
 
-      if (orgJoinCode) {
-        const { data: matchedOrgs } = await client
-          .from('organisations')
-          .select('id')
-          .ilike('join_code', orgJoinCode);
-        if (matchedOrgs && matchedOrgs.length > 0) {
-          candidateOrgIds = Array.from(new Set([...candidateOrgIds, ...matchedOrgs.map((o: any) => o.id)]));
+      if (orgJoinCode || org?.slug || org?.name) {
+        const cleanCode = orgJoinCode;
+        const cleanStripped = cleanCode.replace(/[^A-Z0-9]/g, '');
+        const slug = (org?.slug || org?.name || '').toLowerCase().replace(/[^a-z0-9-]/g, '-');
+
+        const filters: string[] = [];
+        if (cleanCode) filters.push(`join_code.ilike.${cleanCode}`);
+        if (cleanStripped && cleanStripped !== cleanCode) filters.push(`join_code.ilike.${cleanStripped}`);
+        if (slug && slug.length >= 2) filters.push(`slug.ilike.${slug}`);
+
+        if (filters.length > 0) {
+          const { data: matchedOrgs } = await client
+            .from('organisations')
+            .select('id')
+            .or(filters.join(','));
+          if (matchedOrgs && matchedOrgs.length > 0) {
+            candidateOrgIds = Array.from(new Set([...candidateOrgIds, ...matchedOrgs.map((o: any) => o.id)]));
+          }
         }
       }
 

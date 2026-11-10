@@ -70,10 +70,12 @@ export const ChatWindow: React.FC = () => {
   const myId = userProfile?.id || 'usr-owner';
   const myEmail = (userProfile?.email || '').toLowerCase().trim();
   const targetId = member?.id || activeChatMemberId || '';
+  const targetEmail = (member?.email || '').toLowerCase().trim();
   const convKey = [myId.toLowerCase(), targetId.toLowerCase()].sort().join('__');
+  const emailConvKey = myEmail && targetEmail ? [myEmail, targetEmail].sort().join('__') : '';
 
   const messages = activeChatMemberId
-    ? chatMessages[convKey] || chatMessages[targetId] || chatMessages[activeChatMemberId] || []
+    ? chatMessages[convKey] || (emailConvKey ? chatMessages[emailConvKey] : undefined) || chatMessages[targetId] || chatMessages[activeChatMemberId] || []
     : [];
 
   // Auto-scroll to bottom of chat

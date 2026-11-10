@@ -3,6 +3,8 @@ import type { Board, Card, FilterOptions, BoardBackground, ChatMessage, Member }
 import { INITIAL_BOARDS, DEFAULT_LABELS } from '../data/initialData';
 import { useTenant } from './TenantContext';
 import { useAuth } from './AuthContext';
+import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabase';
+import { toUUID } from '../services/tenantService';
 import confetti from 'canvas-confetti';
 
 const STORAGE_KEY = 'stratcrest_flow_boards_v1';
@@ -131,6 +133,7 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Chat state
   const CHAT_STORAGE_KEY = 'stratcrest_flow_chat_messages_v1';
   const { userProfile } = useAuth();
+  const { activeOrg, members: orgMembers } = useTenant();
   const [activeChatMemberId, setActiveChatMemberId] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [chatMessages, setChatMessages] = useState<Record<string, ChatMessage[]>>(() => {
@@ -159,7 +162,169 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [chatMessages]);
 
-  // Real-time pub/sub across open browser tabs & windows
+  // Helper to fetch messages from Supabase chat_messages table
+  const fetchChatMessages = useCallback(async (targetMemberId: string) => {
+    if (!isSupabaseConfigured() || !targetMemberId) return;
+    try {
+      const client = getSupabaseClient();
+      const myId = userProfile?.id || 'usr-owner';
+      const myEmail = (userProfile?.email || '').toLowerCase().trim();
+
+      const targetMember = orgMembers.find(
+        (m) => m.userId === targetMemberId || m.id === targetMemberId || m.user?.email === targetMemberId
+      );
+      const targetEmail = (targetMember?.user?.email || '').toLowerCase().trim();
+
+      const convKey = getConversationKey(myId, targetMemberId);
+      const emailConvKey = myEmail && targetEmail ? [myEmail, targetEmail].sort().join('__') : '';
+
+      const myUuid = toUUID(myId);
+      const targetUuid = toUUID(targetMemberId);
+
+      const filterParts: string[] = [`conversation_key.eq.${convKey}`];
+      if (emailConvKey && emailConvKey !== convKey) {
+        filterParts.push(`conversation_key.eq.${emailConvKey}`);
+      }
+      if (myUuid && targetUuid) {
+        filterParts.push(`and(sender_id.eq.${myUuid},recipient_id.eq.${targetUuid})`);
+        filterParts.push(`and(sender_id.eq.${targetUuid},recipient_id.eq.${myUuid})`);
+      }
+      if (myEmail && targetEmail) {
+        filterParts.push(`and(sender_email.eq.${myEmail},recipient_email.eq.${targetEmail})`);
+        filterParts.push(`and(sender_email.eq.${targetEmail},recipient_email.eq.${myEmail})`);
+      }
+
+      const { data, error } = await client
+        .from('chat_messages')
+        .select('*')
+        .or(filterParts.join(','))
+        .order('created_at', { ascending: true });
+
+      if (!error && data && Array.isArray(data)) {
+        const loaded: ChatMessage[] = data.map((d: any) => ({
+          id: d.id,
+          senderId: d.sender_id,
+          senderName: d.sender_name || (d.sender_email ? d.sender_email.split('@')[0] : 'User'),
+          senderEmail: d.sender_email,
+          recipientId: d.recipient_id,
+          text: d.text,
+          timestamp: new Date(d.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          status: (d.status as any) || 'delivered',
+        }));
+
+        setChatMessages((prev) => {
+          const updated = { ...prev };
+          updated[convKey] = loaded;
+          if (emailConvKey) updated[emailConvKey] = loaded;
+          updated[targetMemberId] = loaded;
+          try {
+            localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(updated));
+          } catch {}
+          return updated;
+        });
+      }
+    } catch (e) {
+      console.warn('[Chat] Fetch error:', e);
+    }
+  }, [userProfile, orgMembers, getConversationKey]);
+
+  // Initial fetch and poll when active chat is open
+  useEffect(() => {
+    if (!activeChatMemberId) return;
+    fetchChatMessages(activeChatMemberId);
+
+    const interval = setInterval(() => {
+      fetchChatMessages(activeChatMemberId);
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [activeChatMemberId, fetchChatMessages]);
+
+  // Supabase Real-time pub/sub across devices & windows
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    const client = getSupabaseClient();
+    const myEmail = (userProfile?.email || '').toLowerCase().trim();
+    const myId = userProfile?.id || 'usr-owner';
+    const myUuid = toUUID(myId);
+
+    try {
+      const channel = client
+        .channel('public:chat_messages_realtime_stream')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'chat_messages',
+          },
+          (payload) => {
+            const row = payload.new;
+            if (!row) return;
+
+            const senderEmail = (row.sender_email || '').toLowerCase().trim();
+            const recipientEmail = (row.recipient_email || '').toLowerCase().trim();
+            const senderId = row.sender_id;
+            const recipientId = row.recipient_id;
+
+            const isForMe =
+              (myEmail && (recipientEmail === myEmail || senderEmail === myEmail)) ||
+              (recipientId === myUuid || senderId === myUuid);
+
+            if (isForMe) {
+              const incomingMsg: ChatMessage = {
+                id: row.id,
+                senderId: row.sender_id,
+                senderName: row.sender_name || 'User',
+                senderEmail: row.sender_email,
+                recipientId: row.recipient_id,
+                text: row.text,
+                timestamp: new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                status: 'delivered',
+              };
+
+              setChatMessages((prev) => {
+                const convKey = row.conversation_key;
+                const existing = prev[convKey] || [];
+                if (
+                  existing.some(
+                    (m) =>
+                      m.id === incomingMsg.id ||
+                      (m.text === incomingMsg.text && m.timestamp === incomingMsg.timestamp)
+                  )
+                ) {
+                  return prev;
+                }
+
+                const otherEmail = senderEmail === myEmail ? recipientEmail : senderEmail;
+                const otherId = senderId === myUuid ? recipientId : senderId;
+
+                const updated: Record<string, ChatMessage[]> = {
+                  ...prev,
+                  [convKey]: [...existing, incomingMsg],
+                };
+                if (otherEmail) updated[otherEmail] = updated[convKey];
+                if (otherId) updated[otherId] = updated[convKey];
+                if (activeChatMemberId) updated[activeChatMemberId] = updated[convKey];
+                try {
+                  localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(updated));
+                } catch {}
+                return updated;
+              });
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        client.removeChannel(channel);
+      };
+    } catch (e) {
+      console.warn('[Chat] Supabase realtime subscription notice:', e);
+    }
+  }, [userProfile, activeChatMemberId]);
+
+  // Same-device BroadcastChannel & Storage Event sync
   useEffect(() => {
     let bc: BroadcastChannel | null = null;
     try {
@@ -192,13 +357,15 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                   ...prev,
                   [convKey]: [...existing, incomingMsg],
                 };
+                if (data.emailConversationKey) {
+                  updated[data.emailConversationKey] = updated[convKey];
+                }
                 if (data.senderId) {
                   updated[data.senderId as string] = updated[convKey];
                 }
                 return updated;
               });
 
-              // If currently active chat with this sender, notify read
               if (activeChatMemberId === data.senderId) {
                 try {
                   const ackBc = new BroadcastChannel('stratcrest_flow_chat_v1');
@@ -231,7 +398,6 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       console.warn('Real-time chat broadcast channel initialization notice:', e);
     }
 
-    // Fallback storage event listener for cross-window sync
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === CHAT_STORAGE_KEY && e.newValue) {
         try {
@@ -294,8 +460,6 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeCardId, isFilterOpen, isShortcutsOpen, isNewBoardOpen, isBgPickerOpen, isSidebarOpen]);
-
-  const { activeOrg, members: orgMembers } = useTenant();
 
   // Organisation's real members mapped to Member interface
   const currentOrgMembers = useMemo<Member[]>(() => {
@@ -886,7 +1050,15 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const myName = userProfile?.name || 'User';
     const myEmail = userProfile?.email;
 
+    const recipientMem = orgMembers.find(
+      (m) => m.userId === memberId || m.id === memberId || m.user?.email === memberId
+    );
+    const recipientEmail = recipientMem?.user?.email;
+
     const convKey = getConversationKey(myId, memberId);
+    const emailConvKey = myEmail && recipientEmail
+      ? [myEmail.toLowerCase().trim(), recipientEmail.toLowerCase().trim()].sort().join('__')
+      : convKey;
 
     const newMsg: ChatMessage = {
       id: msgId,
@@ -900,11 +1072,14 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     setChatMessages((prev) => {
-      const existingConv = prev[convKey] || prev[memberId] || [];
+      const existingConv = prev[convKey] || prev[emailConvKey] || prev[memberId] || [];
       const updated = {
         ...prev,
         [convKey]: [...existingConv, newMsg],
       };
+      if (emailConvKey && emailConvKey !== convKey) {
+        updated[emailConvKey] = updated[convKey];
+      }
       if (memberId !== convKey) {
         updated[memberId] = updated[convKey];
       }
@@ -916,21 +1091,56 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return updated;
     });
 
-    // Real-time broadcast to all open tabs and windows
+    // Real-time broadcast to all open tabs and windows on same device
     try {
       if (typeof BroadcastChannel !== 'undefined') {
         const bc = new BroadcastChannel('stratcrest_flow_chat_v1');
         bc.postMessage({
           type: 'NEW_MESSAGE',
           conversationKey: convKey,
+          emailConversationKey: emailConvKey,
           recipientId: memberId,
+          recipientEmail,
           senderId: myId,
+          senderEmail: myEmail,
           message: newMsg,
         });
         bc.close();
       }
     } catch (e) {
       console.warn('Broadcast error', e);
+    }
+
+    // Persist to Supabase chat_messages table for cross-device real-time sync
+    if (isSupabaseConfigured()) {
+      try {
+        const client = getSupabaseClient();
+        const orgUuid = activeOrg?.id ? toUUID(activeOrg.id) : null;
+        const senderUuid = toUUID(myId);
+        const recipientUuid = toUUID(memberId);
+
+        client
+          .from('chat_messages')
+          .insert({
+            id: toUUID(msgId),
+            organisation_id: orgUuid,
+            conversation_key: emailConvKey || convKey,
+            sender_id: senderUuid,
+            sender_name: myName,
+            sender_email: myEmail || null,
+            recipient_id: recipientUuid,
+            recipient_email: recipientEmail || null,
+            text: text.trim(),
+            status: 'sent',
+          })
+          .then(({ error }) => {
+            if (error) {
+              console.warn('[Chat] Supabase insert error:', error.message);
+            }
+          });
+      } catch (err) {
+        console.warn('[Chat] Supabase error:', err);
+      }
     }
   };
 

@@ -1,8 +1,8 @@
 -- ============================================================================
--- STRATCREST FLOW - CROSS-DEVICE REAL-TIME MEMBERSHIP SYNC MIGRATION
+-- STRATCREST FLOW - CROSS-DEVICE REAL-TIME MEMBERSHIP & CHAT SYNC
 -- ============================================================================
 -- Run this in Supabase SQL Editor (https://supabase.com/dashboard/project/_/sql)
--- This enables full multi-device synchronization for organisation members,
+-- This enables full multi-device synchronization for organisation members & chat,
 -- removes foreign key blocks, and enables Supabase Realtime broadcast.
 -- ============================================================================
 
@@ -19,7 +19,7 @@ ALTER TABLE public.organisation_members ADD COLUMN IF NOT EXISTS user_avatar_col
 ALTER TABLE public.organisations ADD COLUMN IF NOT EXISTS join_code VARCHAR(50);
 CREATE INDEX IF NOT EXISTS idx_organisations_join_code ON public.organisations(UPPER(join_code));
 
--- 4. Enable Row Level Security (RLS) policies allowing public multi-tenant access
+-- 4. Enable Row Level Security (RLS) policies allowing public multi-tenant access on organisation_members
 ALTER TABLE public.organisations ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Organisations readable by all" ON public.organisations;
 CREATE POLICY "Organisations readable by all" ON public.organisations FOR SELECT USING (true);
@@ -42,7 +42,17 @@ CREATE POLICY "Members updatable by all" ON public.organisation_members FOR UPDA
 DROP POLICY IF EXISTS "Members deletable by all" ON public.organisation_members;
 CREATE POLICY "Members deletable by all" ON public.organisation_members FOR DELETE USING (true);
 
--- 5. Enable Realtime publication so changes broadcast immediately across devices
+-- 5. CHAT MESSAGES FIX: Remove foreign key constraints and enable open cross-device delivery
+ALTER TABLE public.chat_messages DROP CONSTRAINT IF EXISTS chat_messages_sender_id_fkey;
+ALTER TABLE public.chat_messages DROP CONSTRAINT IF EXISTS chat_messages_recipient_id_fkey;
+ALTER TABLE public.chat_messages ADD COLUMN IF NOT EXISTS recipient_email VARCHAR(255);
+
+ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Chat message access" ON public.chat_messages;
+DROP POLICY IF EXISTS "Chat message access by all" ON public.chat_messages;
+CREATE POLICY "Chat message access by all" ON public.chat_messages FOR ALL USING (true);
+
+-- 6. Enable Realtime publication so members and chat messages broadcast across devices
 DO $$ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.organisations;
 EXCEPTION WHEN others THEN null;
@@ -53,18 +63,23 @@ DO $$ BEGIN
 EXCEPTION WHEN others THEN null;
 END $$;
 
--- 6. Seed Akash's crest organisation (CRES-5822) and link both Akash + strivecad
+DO $$ BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.chat_messages;
+EXCEPTION WHEN others THEN null;
+END $$;
+
+-- 7. Ensure Akash's crest organisation (CRES-7499) and both members exist
 INSERT INTO public.organisations (id, name, slug, join_code, status, plan_id)
 VALUES (
     'c7e57001-c8e5-4d76-90b4-3a9bb7615822',
     'crest',
     'crest',
-    'CRES-5822',
+    'CRES-7499',
     'active',
     'free_trial'
 )
 ON CONFLICT (id) DO UPDATE SET
-    join_code = 'CRES-5822',
+    join_code = 'CRES-7499',
     name = 'crest';
 
 -- Seed Akash (Founder & Owner)

@@ -280,13 +280,13 @@ describe('Stratcrest Flow: Multi-Tenant SaaS Architecture Tests', () => {
       const org = await tenantService.findOrgByJoinCodeAsync('ACME-2026');
       expect(org).toBeDefined();
       expect(org?.id).toBe('org-acme');
-    });
+    }, 15000);
 
     it('should support fetching members from Supabase with graceful fallback', async () => {
       const members = await tenantService.fetchMembersFromSupabase('org-acme');
       expect(members).toBeDefined();
       expect(Array.isArray(members)).toBe(true);
       expect(members.length).toBeGreaterThan(0);
-    });
+    }, 15000);
   });
 });
