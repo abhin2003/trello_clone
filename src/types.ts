@@ -106,5 +106,6 @@ export interface ChatMessage {
   senderEmail?: string;
   text: string;
   timestamp: string;
+  timestampRaw?: string;
   status: 'sent' | 'delivered' | 'read';
 }

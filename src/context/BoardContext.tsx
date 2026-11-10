@@ -171,9 +171,13 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const myEmail = (userProfile?.email || '').toLowerCase().trim();
 
       const targetMember = orgMembers.find(
-        (m) => m.userId === targetMemberId || m.id === targetMemberId || m.user?.email === targetMemberId
+        (m) =>
+          m.userId === targetMemberId ||
+          m.id === targetMemberId ||
+          m.user?.email === targetMemberId ||
+          (m.user?.email && m.user.email.toLowerCase() === targetMemberId.toLowerCase())
       );
-      const targetEmail = (targetMember?.user?.email || '').toLowerCase().trim();
+      const targetEmail = (targetMember?.user?.email || (targetMemberId.includes('@') ? targetMemberId : '')).toLowerCase().trim();
 
       const convKey = getConversationKey(myId, targetMemberId);
       const emailConvKey = myEmail && targetEmail ? [myEmail, targetEmail].sort().join('__') : '';
@@ -189,6 +193,10 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         filterParts.push(`and(sender_id.eq.${myUuid},recipient_id.eq.${targetUuid})`);
         filterParts.push(`and(sender_id.eq.${targetUuid},recipient_id.eq.${myUuid})`);
       }
+      if (myEmail && targetEmail) {
+        filterParts.push(`and(sender_email.eq.${myEmail},recipient_email.eq.${targetEmail})`);
+        filterParts.push(`and(sender_email.eq.${targetEmail},recipient_email.eq.${myEmail})`);
+      }
 
       const { data, error } = await client
         .from('chat_messages')
@@ -197,6 +205,11 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .order('created_at', { ascending: true });
 
       if (!error && data && Array.isArray(data)) {
+        if (data.length === 0) {
+          // Keep existing local messages if server returned 0 rows
+          return;
+        }
+
         const loaded: ChatMessage[] = data.map((d: any) => ({
           id: d.id,
           senderId: d.sender_id,
@@ -205,14 +218,44 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           recipientId: d.recipient_id,
           text: d.text,
           timestamp: new Date(d.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          timestampRaw: d.created_at,
           status: (d.status as any) || 'delivered',
         }));
 
         setChatMessages((prev) => {
+          const candidateKeys = Array.from(new Set([
+            convKey,
+            emailConvKey,
+            targetMemberId,
+            targetEmail,
+            targetMember?.userId,
+            targetMember?.id,
+          ].filter((k): k is string => Boolean(k))));
+
+          const map = new Map<string, ChatMessage>();
+          // Preserve any existing local unsynced messages
+          for (const k of candidateKeys) {
+            if (Array.isArray(prev[k])) {
+              for (const m of prev[k]) {
+                map.set(m.id, m);
+              }
+            }
+          }
+          // Merge remote messages
+          for (const m of loaded) {
+            map.set(m.id, m);
+          }
+
+          const merged = Array.from(map.values()).sort((a, b) => {
+            const tA = a.timestampRaw || a.timestamp || '';
+            const tB = b.timestampRaw || b.timestamp || '';
+            return tA.localeCompare(tB) || a.id.localeCompare(b.id);
+          });
+
           const updated = { ...prev };
-          updated[convKey] = loaded;
-          if (emailConvKey) updated[emailConvKey] = loaded;
-          updated[targetMemberId] = loaded;
+          for (const k of candidateKeys) {
+            updated[k] = merged;
+          }
           try {
             localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(updated));
           } catch {}
@@ -244,9 +287,12 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const myId = userProfile?.id || 'usr-owner';
     const myUuid = toUUID(myId);
 
+    const channelId = `chat_realtime_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    let channel: any = null;
+
     try {
-      const channel = client
-        .channel('chat_realtime_global_feed')
+      channel = client
+        .channel(channelId)
         .on(
           'postgres_changes',
           {
@@ -266,8 +312,11 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
             const isForMe =
               !myEmail ||
-              (recipientEmail === myEmail || senderEmail === myEmail || convKey.includes(myEmail)) ||
-              (recipientId === myUuid || senderId === myUuid);
+              recipientEmail === myEmail ||
+              senderEmail === myEmail ||
+              convKey.includes(myEmail) ||
+              recipientId === myUuid ||
+              senderId === myUuid;
 
             if (isForMe) {
               const incomingMsg: ChatMessage = {
@@ -278,34 +327,56 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 recipientId: row.recipient_id,
                 text: row.text,
                 timestamp: new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                timestampRaw: row.created_at,
                 status: 'delivered',
               };
 
               setChatMessages((prev) => {
-                const existing = prev[convKey] || [];
-                if (
-                  existing.some(
-                    (m) =>
-                      m.id === incomingMsg.id ||
-                      (m.text === incomingMsg.text && m.timestamp === incomingMsg.timestamp)
-                  )
-                ) {
-                  return prev;
-                }
-
                 let otherEmail = senderEmail === myEmail ? recipientEmail : senderEmail;
                 if (!otherEmail && convKey.includes('__') && myEmail) {
                   otherEmail = convKey.split('__').find((e: string) => e.toLowerCase() !== myEmail) || '';
                 }
                 const otherId = senderId === myUuid ? recipientId : senderId;
 
-                const updated: Record<string, ChatMessage[]> = {
-                  ...prev,
-                  [convKey]: [...existing, incomingMsg],
-                };
-                if (otherEmail) updated[otherEmail] = updated[convKey];
-                if (otherId) updated[otherId] = updated[convKey];
-                if (activeChatMemberId) updated[activeChatMemberId] = updated[convKey];
+                const targetKeys = Array.from(new Set([
+                  convKey,
+                  otherEmail,
+                  otherId,
+                  senderEmail,
+                  recipientEmail,
+                  senderId,
+                  recipientId,
+                ].filter((k): k is string => Boolean(k))));
+
+                // Check if already in state
+                let alreadyExists = false;
+                for (const k of targetKeys) {
+                  if (prev[k]?.some((m) => m.id === incomingMsg.id || (m.text === incomingMsg.text && m.timestamp === incomingMsg.timestamp))) {
+                    alreadyExists = true;
+                    break;
+                  }
+                }
+                if (alreadyExists) return prev;
+
+                // Find largest existing array among target keys
+                let baseList: ChatMessage[] = [];
+                for (const k of targetKeys) {
+                  if (Array.isArray(prev[k]) && prev[k].length > baseList.length) {
+                    baseList = prev[k];
+                  }
+                }
+
+                const updatedList = [...baseList, incomingMsg].sort((a, b) => {
+                  const tA = a.timestampRaw || a.timestamp || '';
+                  const tB = b.timestampRaw || b.timestamp || '';
+                  return tA.localeCompare(tB) || a.id.localeCompare(b.id);
+                });
+
+                const updated = { ...prev };
+                for (const k of targetKeys) {
+                  updated[k] = updatedList;
+                }
+
                 try {
                   localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(updated));
                 } catch {}
@@ -315,14 +386,18 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }
         )
         .subscribe();
-
-      return () => {
-        client.removeChannel(channel);
-      };
     } catch (e) {
       console.warn('[Chat] Supabase realtime subscription notice:', e);
     }
-  }, [userProfile, activeChatMemberId]);
+
+    return () => {
+      if (channel) {
+        try {
+          client.removeChannel(channel);
+        } catch {}
+      }
+    };
+  }, [userProfile?.id, userProfile?.email]);
 
   // Same-device BroadcastChannel & Storage Event sync
   useEffect(() => {
@@ -1048,16 +1123,21 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const myId = userProfile?.id || 'usr-owner';
     const myName = userProfile?.name || 'User';
-    const myEmail = userProfile?.email;
+    const myEmail = (userProfile?.email || '').toLowerCase().trim();
 
     const recipientMem = orgMembers.find(
-      (m) => m.userId === memberId || m.id === memberId || m.user?.email === memberId
+      (m) =>
+        m.userId === memberId ||
+        m.id === memberId ||
+        m.user?.email === memberId ||
+        (m.user?.email && m.user.email.toLowerCase() === memberId.toLowerCase())
     );
-    const recipientEmail = recipientMem?.user?.email;
+    const recipientEmail = (recipientMem?.user?.email || (memberId.includes('@') ? memberId : '')).toLowerCase().trim();
+    const actualRecipientId = recipientMem?.userId || recipientMem?.id || memberId;
 
     const convKey = getConversationKey(myId, memberId);
     const emailConvKey = myEmail && recipientEmail
-      ? [myEmail.toLowerCase().trim(), recipientEmail.toLowerCase().trim()].sort().join('__')
+      ? [myEmail, recipientEmail].sort().join('__')
       : convKey;
 
     const newMsg: ChatMessage = {
@@ -1065,23 +1145,35 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       senderId: myId,
       senderName: myName,
       senderEmail: myEmail,
-      recipientId: memberId,
+      recipientId: actualRecipientId,
       text: text.trim(),
       timestamp: timeStr,
+      timestampRaw: now.toISOString(),
       status: 'sent',
     };
 
+    const targetKeys = Array.from(new Set([
+      convKey,
+      emailConvKey,
+      memberId,
+      recipientEmail,
+      actualRecipientId,
+      recipientMem?.userId,
+      recipientMem?.id,
+    ].filter((k): k is string => Boolean(k))));
+
     setChatMessages((prev) => {
-      const existingConv = prev[convKey] || prev[emailConvKey] || prev[memberId] || [];
-      const updated = {
-        ...prev,
-        [convKey]: [...existingConv, newMsg],
-      };
-      if (emailConvKey && emailConvKey !== convKey) {
-        updated[emailConvKey] = updated[convKey];
+      let existingConv: ChatMessage[] = [];
+      for (const k of targetKeys) {
+        if (Array.isArray(prev[k]) && prev[k].length > existingConv.length) {
+          existingConv = prev[k];
+        }
       }
-      if (memberId !== convKey) {
-        updated[memberId] = updated[convKey];
+
+      const updatedList = [...existingConv, newMsg];
+      const updated = { ...prev };
+      for (const k of targetKeys) {
+        updated[k] = updatedList;
       }
       try {
         localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(updated));
@@ -1099,7 +1191,7 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           type: 'NEW_MESSAGE',
           conversationKey: convKey,
           emailConversationKey: emailConvKey,
-          recipientId: memberId,
+          recipientId: actualRecipientId,
           recipientEmail,
           senderId: myId,
           senderEmail: myEmail,
@@ -1117,7 +1209,7 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const client = getSupabaseClient();
         const orgUuid = activeOrg?.id ? toUUID(activeOrg.id) : null;
         const senderUuid = toUUID(myId);
-        const recipientUuid = toUUID(memberId);
+        const recipientUuid = toUUID(actualRecipientId);
 
         client
           .from('chat_messages')
@@ -1133,9 +1225,23 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             text: text.trim(),
             status: 'sent',
           })
-          .then(({ error }) => {
+          .select()
+          .then(({ data, error }) => {
             if (error) {
               console.warn('[Chat] Supabase insert error:', error.message);
+            } else if (data && data[0]) {
+              // Update status to delivered once recorded in Supabase
+              setChatMessages((prev) => {
+                const updated = { ...prev };
+                for (const k of targetKeys) {
+                  if (Array.isArray(updated[k])) {
+                    updated[k] = updated[k].map((m) =>
+                      m.id === msgId ? { ...m, status: 'delivered' as const } : m
+                    );
+                  }
+                }
+                return updated;
+              });
             }
           });
       } catch (err) {

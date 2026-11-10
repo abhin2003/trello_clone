@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useBoard } from '../context/BoardContext';
 import { useTenant } from '../context/TenantContext';
 import { useAuth } from '../context/AuthContext';
+import type { ChatMessage } from '../types';
 import {
   X,
   Send,
@@ -34,38 +35,47 @@ export const ChatWindow: React.FC = () => {
 
   // Resolve member from organisation members, board members, or fallback
   const orgMember = orgMembers.find(
-    (m) => m.userId === activeChatMemberId || m.id === activeChatMemberId
+    (m) =>
+      m.userId === activeChatMemberId ||
+      m.id === activeChatMemberId ||
+      m.user?.email === activeChatMemberId ||
+      (m.user?.email && activeChatMemberId && m.user.email.toLowerCase() === activeChatMemberId.toLowerCase())
   );
   const boardMember = activeBoard?.members?.find((m) => m.id === activeChatMemberId);
 
-  const member = orgMember
-    ? {
+  const member = useMemo(() => {
+    if (orgMember) {
+      return {
         id: orgMember.userId || orgMember.id,
         name: orgMember.user?.name || orgMember.user?.email?.split('@')[0] || 'Team Member',
         avatarColor: orgMember.user?.avatarColor || '#3b82f6',
         initials: orgMember.user?.initials || (orgMember.user?.name ? orgMember.user.name.slice(0, 2).toUpperCase() : 'TM'),
         email: orgMember.user?.email,
         jobTitle: orgMember.jobTitle,
-      }
-    : boardMember
-    ? {
+      };
+    }
+    if (boardMember) {
+      return {
         id: boardMember.id,
         name: boardMember.name,
         avatarColor: boardMember.avatarColor,
         initials: boardMember.initials,
         email: undefined,
         jobTitle: undefined,
-      }
-    : activeChatMemberId
-    ? {
+      };
+    }
+    if (activeChatMemberId) {
+      return {
         id: activeChatMemberId,
-        name: 'Team Member',
+        name: activeChatMemberId.includes('@') ? activeChatMemberId.split('@')[0] : 'Team Member',
         avatarColor: '#3b82f6',
         initials: 'TM',
-        email: undefined,
+        email: activeChatMemberId.includes('@') ? activeChatMemberId : undefined,
         jobTitle: undefined,
-      }
-    : null;
+      };
+    }
+    return null;
+  }, [orgMember, boardMember, activeChatMemberId]);
 
   const myId = userProfile?.id || 'usr-owner';
   const myEmail = (userProfile?.email || '').toLowerCase().trim();
@@ -74,9 +84,39 @@ export const ChatWindow: React.FC = () => {
   const convKey = [myId.toLowerCase(), targetId.toLowerCase()].sort().join('__');
   const emailConvKey = myEmail && targetEmail ? [myEmail, targetEmail].sort().join('__') : '';
 
-  const messages = activeChatMemberId
-    ? chatMessages[convKey] || (emailConvKey ? chatMessages[emailConvKey] : undefined) || chatMessages[targetId] || chatMessages[activeChatMemberId] || []
-    : [];
+  // Multi-key deduplicating message resolver
+  const messages = useMemo(() => {
+    if (!activeChatMemberId) return [];
+
+    const candidateKeys = Array.from(new Set([
+      emailConvKey,
+      convKey,
+      targetEmail,
+      targetId,
+      activeChatMemberId,
+      orgMember?.userId,
+      orgMember?.id,
+      orgMember?.user?.email?.toLowerCase().trim(),
+    ].filter((k): k is string => Boolean(k))));
+
+    const map = new Map<string, ChatMessage>();
+    for (const key of candidateKeys) {
+      const list = chatMessages[key];
+      if (Array.isArray(list) && list.length > 0) {
+        for (const msg of list) {
+          if (!map.has(msg.id)) {
+            map.set(msg.id, msg);
+          }
+        }
+      }
+    }
+
+    return Array.from(map.values()).sort((a, b) => {
+      const tA = a.timestampRaw || a.timestamp || '';
+      const tB = b.timestampRaw || b.timestamp || '';
+      return tA.localeCompare(tB) || a.id.localeCompare(b.id);
+    });
+  }, [chatMessages, emailConvKey, convKey, targetEmail, targetId, activeChatMemberId, orgMember]);
 
   // Auto-scroll to bottom of chat
   const scrollToBottom = () => {
@@ -288,6 +328,10 @@ export const ChatWindow: React.FC = () => {
               type="submit"
               className={`wa-send-btn ${inputVal.trim() ? 'active' : ''}`}
               title="Send"
+              onClick={(e) => {
+                e.preventDefault();
+                handleSend();
+              }}
             >
               <Send size={16} />
             </button>

@@ -1308,11 +1308,21 @@ class MultiTenantService {
         .map(toUUID)
         .filter((id) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
 
-      const { data, error } = await client
+      if (validUuids.length === 0) {
+        return this.getMembers(orgId);
+      }
+
+      const fetchPromise = client
         .from('organisation_members')
         .select('*')
         .in('organisation_id', validUuids)
         .eq('is_active', true);
+
+      const timeoutPromise = new Promise<any>((_, reject) =>
+        setTimeout(() => reject(new Error('fetchMembers timeout')), 3500)
+      );
+
+      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
 
       if (error) {
         console.warn('[tenantService] fetchMembersFromSupabase query notice:', error.message);
