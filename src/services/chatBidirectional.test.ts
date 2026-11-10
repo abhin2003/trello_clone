@@ -75,6 +75,9 @@ describe('Live Chat Verification in Supabase', () => {
     const texts = conversation!.map((m) => m.text);
     expect(texts).toContain('Hello strivecad! Glad to have you on the Crest team.');
     expect(texts).toContain('Thanks Akash! Ready to work.');
+
+    // Clean up test messages so no dummy values remain in database
+    await client.from('chat_messages').delete().in('id', [msg1Id, msg2Id]);
   }, 15000);
 });
 

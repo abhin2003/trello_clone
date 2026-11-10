@@ -136,10 +136,31 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const { activeOrg, members: orgMembers } = useTenant();
   const [activeChatMemberId, setActiveChatMemberId] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
+  const DUMMY_STRINGS = [
+    'Hello strivecad! Glad to have you on the Crest team.',
+    'Thanks Akash! Ready to work.',
+    'Test live message from Akash to Strivecad',
+    'Testing FK constraint',
+    'Hello from anon client',
+  ];
+
+  const filterOutDummies = (msgs: ChatMessage[]): ChatMessage[] => {
+    return (msgs || []).filter((m) => !DUMMY_STRINGS.some((d) => m.text.includes(d)));
+  };
+
   const [chatMessages, setChatMessages] = useState<Record<string, ChatMessage[]>>(() => {
     try {
       const saved = localStorage.getItem(CHAT_STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const cleaned: Record<string, ChatMessage[]> = {};
+        for (const [k, v] of Object.entries(parsed)) {
+          if (Array.isArray(v)) {
+            cleaned[k] = filterOutDummies(v);
+          }
+        }
+        return cleaned;
+      }
     } catch (e) {
       console.warn('Failed to parse chat messages', e);
     }
@@ -205,38 +226,59 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .order('created_at', { ascending: true });
 
       if (!error && data && Array.isArray(data)) {
+        const candidateKeys = Array.from(new Set([
+          convKey,
+          emailConvKey,
+          targetMemberId,
+          targetEmail,
+          targetMember?.userId,
+          targetMember?.id,
+        ].filter((k): k is string => Boolean(k))));
+
         if (data.length === 0) {
-          // Keep existing local messages if server returned 0 rows
+          // If server has 0 rows (e.g. database was cleaned), purge dummy messages from local state
+          setChatMessages((prev) => {
+            let changed = false;
+            const updated = { ...prev };
+            for (const k of candidateKeys) {
+              if (Array.isArray(updated[k])) {
+                const cleaned = filterOutDummies(updated[k]);
+                if (cleaned.length !== updated[k].length) {
+                  updated[k] = cleaned;
+                  changed = true;
+                }
+              }
+            }
+            if (changed) {
+              try {
+                localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(updated));
+              } catch {}
+            }
+            return changed ? updated : prev;
+          });
           return;
         }
 
-        const loaded: ChatMessage[] = data.map((d: any) => ({
-          id: d.id,
-          senderId: d.sender_id,
-          senderName: d.sender_name || (d.sender_email ? d.sender_email.split('@')[0] : 'User'),
-          senderEmail: d.sender_email,
-          recipientId: d.recipient_id,
-          text: d.text,
-          timestamp: new Date(d.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          timestampRaw: d.created_at,
-          status: (d.status as any) || 'delivered',
-        }));
+        const loaded: ChatMessage[] = filterOutDummies(
+          data.map((d: any) => ({
+            id: d.id,
+            senderId: d.sender_id,
+            senderName: d.sender_name || (d.sender_email ? d.sender_email.split('@')[0] : 'User'),
+            senderEmail: d.sender_email,
+            recipientId: d.recipient_id,
+            text: d.text,
+            timestamp: new Date(d.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            timestampRaw: d.created_at,
+            status: (d.status as any) || 'delivered',
+          }))
+        );
 
         setChatMessages((prev) => {
-          const candidateKeys = Array.from(new Set([
-            convKey,
-            emailConvKey,
-            targetMemberId,
-            targetEmail,
-            targetMember?.userId,
-            targetMember?.id,
-          ].filter((k): k is string => Boolean(k))));
-
           const map = new Map<string, ChatMessage>();
-          // Preserve any existing local unsynced messages
+          // Preserve any existing local unsynced messages (excluding dummies)
           for (const k of candidateKeys) {
             if (Array.isArray(prev[k])) {
-              for (const m of prev[k]) {
+              for (const m of filterOutDummies(prev[k])) {
                 map.set(m.id, m);
               }
             }

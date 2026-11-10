@@ -90,14 +90,26 @@ let clientInstance: SupabaseClient | null = null;
 export const getSupabaseClient = (): SupabaseClient => {
   const config = getSupabaseConfig();
   if (!clientInstance) {
+    // If Supabase Auth is disabled for testing/demo, ensure expired JWTs in localStorage do not block PostgREST requests
+    if (typeof localStorage !== 'undefined' && !isSupabaseAuthEnabled()) {
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('sb-') && key.endsWith('-auth-token'))) {
+            localStorage.removeItem(key);
+          }
+        }
+      } catch {}
+    }
+
     clientInstance = createClient(
       config.url || 'https://placeholder.supabase.co',
       config.anonKey || 'placeholder-key',
       {
         auth: {
-          persistSession: true,
-          autoRefreshToken: true,
-          detectSessionInUrl: true,
+          persistSession: isSupabaseAuthEnabled(),
+          autoRefreshToken: isSupabaseAuthEnabled(),
+          detectSessionInUrl: isSupabaseAuthEnabled(),
         },
       }
     );
@@ -117,9 +129,9 @@ export const saveSupabaseConfig = (url: string, anonKey: string): void => {
   // Reset client instance so subsequent calls use new credentials
   clientInstance = createClient(cleanUrl, cleanKey, {
     auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
+      persistSession: isSupabaseAuthEnabled(),
+      autoRefreshToken: isSupabaseAuthEnabled(),
+      detectSessionInUrl: isSupabaseAuthEnabled(),
     },
   });
 };
