@@ -6,23 +6,20 @@
 -- removes foreign key blocks, and enables Supabase Realtime broadcast.
 -- ============================================================================
 
--- 1. Remove the strict foreign key to auth.users so any member from any device can join seamlessly
+-- 1. Remove the restrictive foreign key to auth.users so any member from any device joins seamlessly
 ALTER TABLE public.organisation_members DROP CONSTRAINT IF EXISTS organisation_members_user_id_fkey;
 
--- 2. Ensure user_id column accepts text identifiers
-ALTER TABLE public.organisation_members ALTER COLUMN user_id TYPE TEXT;
-
--- 3. Add direct profile fields to organisation_members for immediate cross-device rendering
+-- 2. Add direct profile fields to organisation_members for immediate cross-device rendering
 ALTER TABLE public.organisation_members ADD COLUMN IF NOT EXISTS user_name VARCHAR(150);
 ALTER TABLE public.organisation_members ADD COLUMN IF NOT EXISTS user_email VARCHAR(255);
 ALTER TABLE public.organisation_members ADD COLUMN IF NOT EXISTS user_initials VARCHAR(10);
 ALTER TABLE public.organisation_members ADD COLUMN IF NOT EXISTS user_avatar_color VARCHAR(30);
 
--- 4. Ensure join_code column is indexed on organisations for fast lookup
+-- 3. Ensure join_code column is indexed on organisations for fast lookup
 ALTER TABLE public.organisations ADD COLUMN IF NOT EXISTS join_code VARCHAR(50);
 CREATE INDEX IF NOT EXISTS idx_organisations_join_code ON public.organisations(UPPER(join_code));
 
--- 5. Enable Row Level Security (RLS) policies allowing public multi-tenant access
+-- 4. Enable Row Level Security (RLS) policies allowing public multi-tenant access
 ALTER TABLE public.organisations ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Organisations readable by all" ON public.organisations;
 CREATE POLICY "Organisations readable by all" ON public.organisations FOR SELECT USING (true);
@@ -32,16 +29,20 @@ DROP POLICY IF EXISTS "Organisations updatable by all" ON public.organisations;
 CREATE POLICY "Organisations updatable by all" ON public.organisations FOR UPDATE USING (true);
 
 ALTER TABLE public.organisation_members ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view memberships of their organisations" ON public.organisation_members;
+DROP POLICY IF EXISTS "Members can view membership" ON public.organisation_members;
 DROP POLICY IF EXISTS "Members readable by all" ON public.organisation_members;
 CREATE POLICY "Members readable by all" ON public.organisation_members FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Users can insert membership" ON public.organisation_members;
 DROP POLICY IF EXISTS "Members insertable by all" ON public.organisation_members;
 CREATE POLICY "Members insertable by all" ON public.organisation_members FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Admins can update membership" ON public.organisation_members;
 DROP POLICY IF EXISTS "Members updatable by all" ON public.organisation_members;
 CREATE POLICY "Members updatable by all" ON public.organisation_members FOR UPDATE USING (true);
 DROP POLICY IF EXISTS "Members deletable by all" ON public.organisation_members;
 CREATE POLICY "Members deletable by all" ON public.organisation_members FOR DELETE USING (true);
 
--- 6. Enable Realtime publication so changes broadcast immediately across tabs/browsers
+-- 5. Enable Realtime publication so changes broadcast immediately across devices
 DO $$ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.organisations;
 EXCEPTION WHEN others THEN null;
@@ -52,7 +53,7 @@ DO $$ BEGIN
 EXCEPTION WHEN others THEN null;
 END $$;
 
--- 7. Seed / link Akash's crest organisation (CRES-5822) and members Akash + strivecad
+-- 6. Seed Akash's crest organisation (CRES-5822) and link both Akash + strivecad
 INSERT INTO public.organisations (id, name, slug, join_code, status, plan_id)
 VALUES (
     'c7e57001-c8e5-4d76-90b4-3a9bb7615822',
@@ -71,7 +72,7 @@ INSERT INTO public.organisation_members (id, organisation_id, user_id, role, job
 VALUES (
     'c7e57001-c8e5-4d76-90b4-3a9bb7610001',
     'c7e57001-c8e5-4d76-90b4-3a9bb7615822',
-    'user-akashrithurishitha-gmail-com',
+    '89ed757d-51a1-4592-a84c-40efdb8eab0f',
     'owner',
     'Founder & Owner',
     true,
@@ -90,7 +91,7 @@ INSERT INTO public.organisation_members (id, organisation_id, user_id, role, job
 VALUES (
     'c7e57001-c8e5-4d76-90b4-3a9bb7610002',
     'c7e57001-c8e5-4d76-90b4-3a9bb7615822',
-    'user-strivecad-gmail-com',
+    '705290e1-4290-4ac6-a2c2-3a27b2e33ba7',
     'member',
     'Team Member',
     true,

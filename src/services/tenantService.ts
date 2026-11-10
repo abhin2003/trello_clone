@@ -1172,7 +1172,7 @@ class MultiTenantService {
       const payload: any = {
         id: memberUuid,
         organisation_id: orgUuid,
-        user_id: member.userId,
+        user_id: toUUID(member.userId),
         role: member.role || 'member',
         job_title: member.jobTitle || 'Team Member',
         is_active: member.isActive ?? true,
