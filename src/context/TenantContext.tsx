@@ -86,9 +86,15 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [refreshIndex, setRefreshIndex] = useState(0);
   const refreshTenantState = useCallback(() => {
     if (isSupabaseConfigured()) {
-      tenantService.fetchMembersFromSupabase(tenantService.getActiveOrgId()).catch(() => {});
+      const activeId = tenantService.getActiveOrgId();
+      tenantService
+        .fetchMembersFromSupabase(activeId)
+        .then(() => {
+          setRefreshIndex((prev) => prev + 1);
+        })
+        .catch(() => {});
     }
-    setRefreshIndex(prev => prev + 1);
+    setRefreshIndex((prev) => prev + 1);
   }, []);
 
   const currentUser = useMemo(() => {
@@ -121,16 +127,28 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // 1. Initial fetch from Supabase
     tenantService.fetchMembersFromSupabase(currentOrg.id).then(() => {
-      setRefreshIndex(prev => prev + 1);
+      setRefreshIndex((prev) => prev + 1);
     });
 
-    // 2. Also ensure current active organization is synced to Supabase
+    // 2. Also ensure current active organization and local members are synced to Supabase
     tenantService.syncOrganisationToSupabase(currentOrg);
+    const localMems = tenantService.getMembers(currentOrg.id);
+    for (const m of localMems) {
+      tenantService.syncMemberToSupabase(m);
+    }
 
-    // 3. Setup Realtime subscription on public.organisation_members
+    // 3. Setup polling fallback (every 3s)
+    const pollInterval = setInterval(() => {
+      tenantService.fetchMembersFromSupabase(currentOrg.id).then(() => {
+        setRefreshIndex((prev) => prev + 1);
+      });
+    }, 3000);
+
+    // 4. Setup Realtime subscription on public.organisation_members
+    let channel: any = null;
     try {
       const client = getSupabaseClient();
-      const channel = client
+      channel = client
         .channel(`public:organisation_members_sync_${currentOrg.id}`)
         .on(
           'postgres_changes',
@@ -141,18 +159,24 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           },
           () => {
             tenantService.fetchMembersFromSupabase(currentOrg.id).then(() => {
-              setRefreshIndex(prev => prev + 1);
+              setRefreshIndex((prev) => prev + 1);
             });
           }
         )
         .subscribe();
-
-      return () => {
-        client.removeChannel(channel);
-      };
     } catch (err) {
       console.warn('[TenantContext] Supabase realtime subscription error:', err);
     }
+
+    return () => {
+      clearInterval(pollInterval);
+      if (channel) {
+        try {
+          const client = getSupabaseClient();
+          client.removeChannel(channel);
+        } catch {}
+      }
+    };
   }, [activeOrgId]);
 
   // Real-time multi-tab & window synchronization

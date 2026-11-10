@@ -29,8 +29,21 @@ export const OrgDashboardPage: React.FC = () => {
     setBoardToRename,
     setBoardToDelete,
   } = useBoard();
-  const { activeOrg, members, workspaces, auditLogs, setIsOrgAdminOpen, setIsCreateWorkspaceOpen, setIsJoinCodeModalOpen } = useTenant();
+  const {
+    activeOrg,
+    members,
+    workspaces,
+    auditLogs,
+    setIsOrgAdminOpen,
+    setIsCreateWorkspaceOpen,
+    setIsJoinCodeModalOpen,
+    refreshTenantState,
+  } = useTenant();
   const { userProfile } = useAuth();
+
+  React.useEffect(() => {
+    refreshTenantState();
+  }, [refreshTenantState]);
 
   const orgSlug = activeOrg.slug || activeOrg.id || 'my-org';
 
