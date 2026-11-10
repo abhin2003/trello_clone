@@ -189,10 +189,6 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         filterParts.push(`and(sender_id.eq.${myUuid},recipient_id.eq.${targetUuid})`);
         filterParts.push(`and(sender_id.eq.${targetUuid},recipient_id.eq.${myUuid})`);
       }
-      if (myEmail && targetEmail) {
-        filterParts.push(`and(sender_email.eq.${myEmail},recipient_email.eq.${targetEmail})`);
-        filterParts.push(`and(sender_email.eq.${targetEmail},recipient_email.eq.${myEmail})`);
-      }
 
       const { data, error } = await client
         .from('chat_messages')
@@ -266,16 +262,17 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             const recipientEmail = (row.recipient_email || '').toLowerCase().trim();
             const senderId = row.sender_id;
             const recipientId = row.recipient_id;
+            const convKey = row.conversation_key || '';
 
             const isForMe =
-              (myEmail && (recipientEmail === myEmail || senderEmail === myEmail)) ||
+              (myEmail && (recipientEmail === myEmail || senderEmail === myEmail || convKey.includes(myEmail))) ||
               (recipientId === myUuid || senderId === myUuid);
 
             if (isForMe) {
               const incomingMsg: ChatMessage = {
                 id: row.id,
                 senderId: row.sender_id,
-                senderName: row.sender_name || 'User',
+                senderName: row.sender_name || (senderEmail ? senderEmail.split('@')[0] : 'User'),
                 senderEmail: row.sender_email,
                 recipientId: row.recipient_id,
                 text: row.text,
@@ -284,7 +281,6 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               };
 
               setChatMessages((prev) => {
-                const convKey = row.conversation_key;
                 const existing = prev[convKey] || [];
                 if (
                   existing.some(
@@ -296,7 +292,10 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                   return prev;
                 }
 
-                const otherEmail = senderEmail === myEmail ? recipientEmail : senderEmail;
+                let otherEmail = senderEmail === myEmail ? recipientEmail : senderEmail;
+                if (!otherEmail && convKey.includes('__') && myEmail) {
+                  otherEmail = convKey.split('__').find((e: string) => e.toLowerCase() !== myEmail) || '';
+                }
                 const otherId = senderId === myUuid ? recipientId : senderId;
 
                 const updated: Record<string, ChatMessage[]> = {
@@ -1129,7 +1128,6 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             sender_name: myName,
             sender_email: myEmail || null,
             recipient_id: recipientUuid,
-            recipient_email: recipientEmail || null,
             text: text.trim(),
             status: 'sent',
           })
