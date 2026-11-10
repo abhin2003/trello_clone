@@ -17,3 +17,4 @@ DO $$ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.chat_messages;
 EXCEPTION WHEN others THEN null;
 END $$;
+
