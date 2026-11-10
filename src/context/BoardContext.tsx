@@ -231,7 +231,7 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const interval = setInterval(() => {
       fetchChatMessages(activeChatMemberId);
-    }, 2500);
+    }, 1200);
 
     return () => clearInterval(interval);
   }, [activeChatMemberId, fetchChatMessages]);
@@ -246,7 +246,7 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     try {
       const channel = client
-        .channel('public:chat_messages_realtime_stream')
+        .channel('chat_realtime_global_feed')
         .on(
           'postgres_changes',
           {
@@ -265,7 +265,8 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             const convKey = row.conversation_key || '';
 
             const isForMe =
-              (myEmail && (recipientEmail === myEmail || senderEmail === myEmail || convKey.includes(myEmail))) ||
+              !myEmail ||
+              (recipientEmail === myEmail || senderEmail === myEmail || convKey.includes(myEmail)) ||
               (recipientId === myUuid || senderId === myUuid);
 
             if (isForMe) {
@@ -1128,6 +1129,7 @@ export const BoardProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             sender_name: myName,
             sender_email: myEmail || null,
             recipient_id: recipientUuid,
+            recipient_email: recipientEmail || null,
             text: text.trim(),
             status: 'sent',
           })

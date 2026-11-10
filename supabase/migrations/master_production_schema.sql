@@ -285,3 +285,4 @@ DO $$ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.cards;
 EXCEPTION WHEN others THEN null;
 END $$;
+

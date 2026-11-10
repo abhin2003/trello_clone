@@ -21,6 +21,9 @@ export interface SupabaseConfigState {
   source: 'env' | 'custom' | 'none';
 }
 
+const DEFAULT_SUPABASE_URL = 'https://mvtnstiyazqmusvsqogz.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_wLn5CxgVez3SKD77QgN52w_f7LrmOjX';
+
 export const getSupabaseConfig = (): SupabaseConfigState => {
   // Check localStorage first
   let customUrl = '';
@@ -39,9 +42,9 @@ export const getSupabaseConfig = (): SupabaseConfigState => {
     };
   }
 
-  // Fallback to import.meta.env
-  const envUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim();
-  const envKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
+  // Fallback to import.meta.env or embedded default production credentials
+  const envUrl = (import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL || '').trim();
+  const envKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY || '').trim();
 
   if (envUrl && envKey && isValidSupabaseUrl(envUrl) && envKey.length > 20 && !envUrl.includes('your-project')) {
     return {
